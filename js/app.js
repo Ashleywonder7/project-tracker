@@ -243,7 +243,7 @@ function renderAll() {
     body.appendChild(row);
   });
   
-  highlightColumn(100, 'is-holiday')
+
   if (empty) empty.classList.toggle('visible', !hasAny);
 
   document.getElementById('projectCount').textContent =
