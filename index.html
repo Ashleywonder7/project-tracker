@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retain — Project Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+</head>
+
+<body>
+
+
+  <aside class="sidebar">
+    <div class="logo">
+      <span class="logo-mark">RA</span>
+      <span class="logo-text">retain</span>
+    </div>
+    <nav class="year-nav" id="yearNav">
+      <button class="year-btn active" onclick="switchYear(2026)">2026</button>
+      <button class="year-btn" onclick="switchYear(2027)">2027</button>
+      <button class="year-btn" onclick="switchYear(2028)">2028</button>
+    </nav>
+    <!--
+    <div class="sidebar-staff">
+      <p class="sidebar-label">Team</p>
+      <ul id="staffSidebar">
+        <li>Kwame</li>
+        <li>Ama</li>
+        <li>Kofi</li>
+        <li>Akosua</li>
+      </ul>
+    </div>
+  -->
+    <!--BUTTONS-->
+    <button id="add-year-btn"> Add year ✚</button>
+    
+    <div class="sidebar-label"></div>
+      <button id="staff-btn" onclick="openStaffModal()" style="font-size: 12px; margin-bottom: 10px;">Manage Staff</button>
+      <button id="holiday-btn" onclick="openHolidayModal()">Manage Holidays</button>
+      <ul id="staffSidebarList">
+        </ul>
+    </div>
+
+    
+
+    <div class="sidebar-footer">
+      <div class="db-status" id="dbStatus">
+        <span class="db-dot"></span>
+        <span>Local Storage</span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top-header">
+      <div class="header-left">
+        <h1 id="dashTitle">Assignment Dashboard <span class="year-badge">2026</span></h1>
+        <p class="subtitle" id="projectCount">0 projects</p>
+      </div>
+      <div class="header-right">
+        <div class="view-toggle">
+          <button class="view-btn active" id="btnAll" onclick="filterView('all')">All Staff</button>
+          <select id="staffFilter" onchange="filterView('staff', this.value)">
+            <option value="">Filter by staff </option>
+          </select>
+        </div>
+        <button class="add-btn" onclick="openForm()">+ Add Project</button>
+      </div>
+    </header>
+
+    <!-- Timeline Header -->
+    
+    <!-- Timeline Body -->
+    <div class="timeline-body" id="timelineBody">
+      <div id="gridHighlightLayer"></div>
+
+      <div class="timeline-wrapper">
+        <div class="staff-header"> Staff</div>
+        <div class="months-header" id="monthsHeader"></div>
+      </div>
+      <!-- Rows injected by JS -->
+      <div id="rowsContainer"></div>
+    </div>
+
+    <!--<div class="empty-state" id="emptyState">
+      <div class="empty-icon">◎</div>
+      <p>No projects yet. Add one to get started.</p>
+    </div>
+  -->
+  </main>
+
+  <!-- Modal -->
+  <div id="projectForm" class="modal" onclick="handleModalClick(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="formTitle">Add Project</h3>
+        <button class="close-btn" onclick="closeForm()">✕</button>
+      </div>
+
+      <label class="field-label">Project Name</label>
+      <input type="text" id="name" placeholder="e.g. Brand Identity">
+
+      <label class="field-label">Assign to Staff</label>
+      <select id="staff">
+        <option>Kwame</option>
+        <option>Ama</option>
+        <option>Kofi</option>
+        <option>Akosua</option>
+      </select>
+
+      <label class="field-label">Colour</label>
+      <div class="color-row">
+        <div class="color-swatch active" data-color="#F59E0B" style="background:#F59E0B" onclick="selectColor(this)"></div>
+        <div class="color-swatch" data-color="#14B8A6" style="background:#14B8A6" onclick="selectColor(this)"></div>
+        <div class="color-swatch" data-color="#6366F1" style="background:#6366F1" onclick="selectColor(this)"></div>
+        <div class="color-swatch" data-color="#EC4899" style="background:#EC4899" onclick="selectColor(this)"></div>
+        <div class="color-swatch" data-color="#10B981" style="background:#eaec5b" onclick="selectColor(this)"></div>
+        <div class="color-swatch" data-color="#EF4444" style="background:#EF4444" onclick="selectColor(this)"></div>
+        <div class="color-swatch custom-trigger" id="customSwatch" style="background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet);" onclick="toggleCustomPicker()">
+          <input type="color" id="color" value="#F59E0B" style="display:none">
+      </div>
+      
+      <div id="pickerPanel" class="picker-panel hidden">
+      <div class="canvas-container" id="colorCanvasContainer">
+        <canvas id="colorCanvas"></canvas>
+        <div id="pickerCursor" class="picker-cursor"></div>
+      </div>
+      <div class="hue-container">
+        <input type="range" id="hueRange" min="0" max="360" value="0" class="hue-slider">
+      </div>
+    </div>
+    <input type="hidden" id="selectedColorValue" value="#F59E0B">
+    </div>
+
+      <div class="date-row">
+        <div>
+          <label class="field-label">Start Date</label>
+          <input type="date" id="startDate">
+        </div>
+        <div>
+          <label class="field-label">End Date</label>
+          <input type="date" id="endDate">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeForm()">Cancel</button>
+        <button class="btn-save" onclick="saveProject()">Save Project</button>
+      </div>
+
+      <div class="delete-row" id="deleteRow" style="display:none">
+        <button class="btn-delete" onclick="deleteProject()">Delete Project</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="staffModal" class="modal" onclick="handleStaffModalClick(event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Manage Staff</h3>
+      <button class="close-btn" onclick="closeStaffModal()">×</button>
+    </div>
+    
+    <div id="staffListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;">
+      </div>
+
+    <div class="field-group">
+      <label class="field-label">New Staff Member Name</label>
+      <input type="text" id="newStaffName" placeholder="Enter name...">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-save" onclick="addStaff()">Add Staff Member</button>
+    </div>
+  </div>
+  </div>
+
+  <div id="holidayModal" class="modal" onclick="handleHolidayModalClick(event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Manage Holidays</h3>
+      <button class="close-btn" onclick="closeHolidayModal()">×</button>
+    </div>
+    
+    <div id="holidayListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid var(--border-soft);">
+      </div>
+
+    <div class="field-group">
+      <label class="field-label">Holiday Name</label>
+      <input type="text" id="holidayName" placeholder="e.g. Christmas">
+      
+      <label class="field-label" style="margin-top:12px;">Date</label>
+      <input type="date" id="holidayDate">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-save" onclick="addHoliday()">Save Holiday</button>
+    </div>
+  </div>
+  </div>
+
+  <div id="yearModal" class="modal" onclick="handleYearModalClick(event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Manage Years</h3>
+      <button class="close-btn" onclick="closeYearModal()">✕</button>
+    </div>
+
+    <div id="yearListContainer" style="max-height: 150px; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid var(--border-soft);">
+      </div>
+
+    <div class="field-group">
+      <label class="field-label">Add New Year</label>
+      <input type="number" id="newYearInput" placeholder="e.g. 2029" min="2000" max="2100">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveNewYear()">Add Year</button>
+    </div>
+  </div>
+  </div>
+  
+  <script src="js/app.js"></script>
+</body>
+</html>

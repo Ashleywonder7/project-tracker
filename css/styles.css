@@ -1,0 +1,985 @@
+/* ═══════════════════════════════════════════
+   RETAIN — PROJECT DASHBOARD
+   Theme: Refined dark, editorial
+═══════════════════════════════════════════ */
+
+:root {
+  --bg:           #ececec;
+  --surface:      #161922;
+  --surface-2:    #1E2330;
+  --border:       #2A2F3E;
+  --border-soft:  #1E2330;
+  --text-primary: #1a327a;
+  --text-muted:   #6B7280;
+  --text-faint:   #d4dbe5;
+  --accent:       #ffffff;
+  --accent-glow:  rgba(245,158,11,0.15);
+  --danger:       #EF4444;
+  --radius:       10px;
+  --radius-sm:    6px;
+  --sidebar-w:    200px;
+  --staff-col-w:  140px;
+  --row-h:        52px;
+  --header-h:     60px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-primary);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR ─────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 20px;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 40px;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  background: var(--accent);
+  color: #000;
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.logo-text {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  color: #c2d6ee;
+}
+
+.year-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 36px;
+
+  /* --- NEW SCROLL LOGIC --- */
+  max-height: 200px;       /* Adjust this height to fit your sidebar layout */
+  overflow-y: auto;        /* Adds a scrollbar only when needed */
+  padding-right: 4px;      /* Space for the scrollbar so it doesn't overlap text */
+  margin-bottom: 24px;     /* Space between the scroll area and the buttons below */
+}
+
+.year-btn {
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+
+
+
+.year-btn:hover {
+  color: #bdb9b9d4;
+  background: var(--surface-2);
+}
+
+.year-btn.active {
+  color: var(--accent);
+  background: var(--accent-glow);
+  border-color: rgba(245,158,11,0.3);
+}
+
+.sidebar-label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+#staff-btn {
+  white-space: nowrap;  /* Prevents the text from breaking into two lines */
+  width: 75%;   /* Allows the button to grow to fit the text */
+  padding: 7px 15px;    /* Adds a bit of breathing room on the sides */
+  display: block;       /* Ensures it respects the bottom margin */
+  text-align: left;
+  padding-left: 12px;
+}
+
+
+/* ADD YEAR BUTTON */
+button {
+  width: 75%;
+  padding: 5px 12px;
+  background:#5773a4;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: #ebe7e7;
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+}
+
+#add-year-btn{
+  margin-top: 10px;
+}
+.sidebar-staff ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-staff li {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+}
+
+.db-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: 'DM Mono', monospace;
+}
+
+.db-dot {
+  width: 7px;
+  height: 7px;
+  background: #10B981;
+  border-radius: 50%;
+  box-shadow: 0 0 6px #10B981;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ─── MAIN ────────────────────────────────── */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+  gap: 0;
+  height: 100vh;
+}
+
+/* ─── HEADER ──────────────────────────────── */
+.top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+
+.top-header h1 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.year-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--accent);
+  background: rgba(2, 120, 205, 0.648);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(245,158,11,0.3);
+}
+
+.subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: 'DM Mono', monospace;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap; /* CRITICAL: Prevents children from dropping to a new line */
+  white-space: nowrap;/* Ensures text inside buttons doesn't wrap */
+}
+
+.view-btn, .view-toggle select {
+  background: var(--text-primary);
+  border: 1px solid var(--text-primary);
+  color: rgba(252, 252, 252, 0.726);
+  font-size: 12px;
+  font-family: 'DM Sans', sans-serif;
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap; /* Prevents "All Staff" from splitting into two lines */
+}
+
+.view-btn.active {
+  color: rgba(252, 252, 252, 0.726);
+  border-color: var(--text-primary);
+  background: var(--text-primary);
+}
+
+.view-toggle select option {
+  background: var(--surface);
+}
+
+.add-btn {
+  background: rgba(61, 124, 178, 0.525);
+  color: #000;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.add-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.add-btn:active { transform: translateY(0); }
+
+/* ─── TIMELINE HEADER ─────────────────────── */
+.timeline-wrapper {
+  display: flex;
+  position: sticky;
+  top:0;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-width: 5000px;
+  z-index: 30;
+}
+
+/* Update these to the same value */
+.timeline-wrapper, 
+.timeline-row,
+#rowsContainer {
+  display: flex;
+  width: 8000px;     /* Increase this (e.g., to 8000px) for wider days */
+  min-width: 6000px; /* Adjust this value as needed */
+}
+
+.staff-header {
+  width: var(--staff-col-w);
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  height: var(--header-h);
+  border-right: 1px solid var(--border);
+  background: #5f7cd2;
+  width: var(--staff-col-w);
+  text-align: center;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #f9f9f9;
+  font-weight: 500;
+  box-sizing: border-box;
+}
+
+.months-header {
+  flex: 1;
+  display: grid;
+  flex-grow: 1;
+  height: var(--header-h);
+  overflow: hidden;
+}
+
+.month-cell {
+  flex: 1;
+  flex-direction: column;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  color: rgba(233, 233, 243, 0.929);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-right: 2px solid var(--text-primary);
+  position: relative;
+  text-align: center;
+  border-left: 1px solid #eee;
+  font-size: 0.75rem;
+  padding: 0;
+  background: #5f7cd2;
+}
+
+.month-cell.current-month {
+  color: rgba(201, 165, 66, 0.97);
+  font-weight: bold;
+}
+
+.month-label {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding-top: 8px;
+  padding-bottom: 2px;
+}
+
+.days-number-row {
+  width: 100%;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.05); /* Slight tint for the numbers area */
+}
+
+.days-number-row span {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px; /* Small enough to fit in the subdivision */
+  text-align: center;
+  color: rgba(255, 255, 255, 0.733);
+  padding: 2px 0;
+  display: block;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+.days-number-row span:last-child {
+  border-right: none;
+}
+
+
+/* ─── TIMELINE BODY ───────────────────────── */
+.timeline-body {
+  flex: 1;
+  display: block;
+  width: 100%;
+  flex-direction: column;
+  overflow: auto;
+  position: relative;
+}
+
+.timeline-body::-webkit-scrollbar { width: 4px; }
+.timeline-body::-webkit-scrollbar-track { background: transparent; }
+.timeline-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.timeline-row {
+  display: flex;
+  height: var(--row-h);
+  min-width: 5000px;
+  border-bottom: 1px solid var(--border-soft);
+  position: relative;
+}
+
+.timeline-row:hover .staff-cell {
+  color: var(--text-primary);
+}
+
+.staff-cell {
+  width: var(--staff-col-w);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  border-right: 1px solid var(--border);
+  font-weight: 400;
+  transition: color 0.15s;
+  background: #a4b3e1;
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  box-sizing: border-box;
+}
+
+
+.staff-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(244, 243, 242, 0.909);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--border-soft);
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+/* Find .row-canvas and update it to this */
+.row-canvas {
+  flex: 1;
+  display: grid;
+  position: relative;
+  overflow: hidden;
+  background-color: transparent; /* Let the highlight layer show through */
+  /* Keep the line definition, but we will control the repeat size via JS */
+  background-image: linear-gradient(
+    to right, 
+    var(--border) 1px, 
+    transparent 1px
+  );
+  background-repeat: repeat-x;
+}
+
+/* Month grid lines */
+.row-canvas::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0; right: 0;
+  background: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc(8.333% - 1px),
+    var(--border-soft) calc(8.333% - 1px),
+    var(--border-soft) 8.333%
+  );
+  pointer-events: none;
+  display: none;
+}
+
+#rowsContainer {
+  display: flex;
+  flex-direction: column;
+  min-width: 5000px;
+}
+
+/* ─── PROJECT BAR ─────────────────────────── */
+.project-bar {
+  position: absolute;
+  height: 32px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  min-width: 4px;
+  transition: filter 0.15s, transform 0.1s;
+  overflow: hidden;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.project-bar:hover {
+  filter: brightness(1.1);
+  transform: translateY(-50%) translateY(1px);
+  z-index: 10;
+}
+
+.bar-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 251, 251, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.bar-dates {
+  font-size: 9px;
+  font-family: 'DM Mono', monospace;
+  color: rgba(227, 206, 206, 0.6);
+  margin-left: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Tooltip */
+.bar-tooltip {
+  position: absolute;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-primary);
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: none;
+}
+
+.project-bar:hover .bar-tooltip {
+  display: block;
+}
+
+/* ─── EMPTY STATE ─────────────────────────── */
+.empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  color: var(--text-faint);
+  padding: 60px;
+}
+
+.empty-state.visible { display: flex; }
+
+.empty-icon {
+  font-size: 36px;
+  opacity: 0.3;
+}
+
+.empty-state p {
+  font-size: 14px;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ─── MODAL ───────────────────────────────── */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(41, 40, 40, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.open { 
+  display: flex; 
+  opacity: 1;
+}
+
+.modal-content {
+  background: rgba(130, 148, 221, 0.726);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  width: 380px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: slideUp 0.2s ease;
+  transform: scale(0.9);
+  transition: transform 180ms ease;
+}
+
+.modal.open .modal-content {
+  transform: scale(1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: rgba(231, 231, 232, 0.726);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(35, 35, 132, 0.726);
+  width: 28px;
+  height: 28px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.close-btn:hover { color: rgba(208, 79, 43, 0.726); background: var(--border); }
+
+.field-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: block;
+  margin-bottom: -8px;
+  font-family: 'DM Mono', monospace;
+}
+
+.modal-content input[type="text"],
+.modal-content input[type="date"],
+.modal-content select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: rgba(217, 219, 225, 0.963);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Specific colors */
+.modal-content input[type="text"] {
+  color: rgba(247, 249, 253, 0.963);
+}
+
+.modal-content input[type="date"] {
+  margin-top: 12px;
+  color: rgba(162, 163, 167, 0.963);
+}
+
+.modal-content select {
+  color: rgba(247, 249, 253, 0.963);
+}
+
+.modal-content input:focus,
+.modal-content select:focus {
+  border-color: var(--accent);
+}
+
+.modal-content select option {
+  background: var(--surface-2);
+}
+
+.color-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform 0.15s, border-color 0.15s;
+  position: relative; 
+  overflow: hidden;
+}
+
+.color-section { position: relative; }
+
+.picker-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 10px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  padding: 12px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hidden { display: none; }
+
+#colorCanvas {
+  width: 200px;
+  height: 150px;
+  border-radius: 4px;
+  cursor: crosshair;
+}
+
+.canvas-container { position: relative; }
+
+.picker-cursor {
+  width: 10px;
+  height: 10px;
+  border: 2px solid white;
+  border-radius: 50%;
+  position: absolute;
+  pointer-events: none;
+  box-shadow: 0 0 2px black;
+  transform: translate(-50%, -50%);
+}
+
+.hue-slider {
+  width: 100%;
+  appearance: none;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+}
+
+.color-swatch.active {
+  border-color: white;
+  transform: scale(1.1);
+}
+
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.active { border-color: white; transform: scale(1.1); }
+
+.custom-trigger {
+  position: relative;
+  border: 1px solid var(--border);
+}
+
+.date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Changes the color of the calendar icon */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1); /* Inverts color to make it white/light */
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.btn-cancel {
+  flex: 1;
+  text-align: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-cancel:hover { color: rgba(216, 201, 133, 0.763); border-color: var(--text-faint); }
+
+.btn-save {
+  flex: 2;
+  background: var(--accent);
+  border: none;
+  text-align: center;
+  color: #000;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.btn-save:hover { opacity: 0.88; }
+
+.delete-row {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+}
+
+.btn-delete {
+  width: 100%;
+  background: rgb(182, 208, 241);
+  border: 1px solid rgba(239,68,68,0.3);
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-delete:hover {
+  background: rgba(225, 241, 124, 0.582);
+  border-color: var(--danger);
+}
+
+/* ─── SCROLLBAR EVERYWHERE ─────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+/* Base modal */
+#projectForm {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+/* Open state */
+#projectForm.open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* Closing state */
+#projectForm.closing {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+#gridHighlightLayer {
+  position: absolute;
+  top: 0;
+  left: 0; /* Offset by the sticky staff column */
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  display: grid;
+  /* Columns will be set by JS (repeat(365, 1fr)) */
+  pointer-events: none; 
+  z-index: 0; /* Behind everything */
+  /* This ensures the grid tracks are identical to your header/rows */
+  /*grid-template-columns: var(--staff-col-w) repeat(365, 1fr);*/
+  width: 5000px;
+}
+
+/* The actual highlight cells */
+.col-highlight {
+  grid-row: 1 / -1; /* Stretch from top to bottom of the grid */
+  background: rgba(0, 0, 0, 0.03); /* Default color for weekends */
+  border-right: 1px solid transparent; 
+  height: 100%;
+  width: 100%;
+  /* This makes the highlight skip the staff column and land on the correct day */
+  grid-row: 1 / -1;
+}
+
+/* Specific class for weekends */
+.is-weekend {
+  background: rgba(94, 90, 91, 0.253);
+}
+
+/* Specific class for "Today" */
+.is-today {
+  background: rgba(245, 159, 11, 0.4);
+  border-left: 1px solid rgba(245, 158, 11, 0.5);
+  border-right: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+/* Ensure other elements don't hide the highlight */
+.timeline-row, .row-canvas {
+  background: transparent ; 
+}
+
+.is-holiday {
+  background: rgba(232, 57, 188, 0.26); /* Faint red */
+  border-left: 1px dashed rgba(255, 0, 0, 0.3);
+  border-right: 1px dashed rgba(255, 0, 0, 0.3);
+}
+
+/* Add a button in your sidebar to open the manager */
+#holiday-btn {
+  white-space: nowrap;
+  width: 90%;
+  text-align: left;
+  font-size: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  padding: 7px 15px;    /* Adds a bit of breathing room on the sides */
+  display: block;       /* Ensures it respects the bottom margin */
+  padding-left: 12px;
+}
+
+#holiday-btn:hover, #add-year-btn:hover, #staff-btn:hover {
+  color: var(--accent);
+  background: var(--surface-2);
+}
+
+/* Ensure the container allows vertical stacking */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* Space between label and input */
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+/* Force the label to be a block element */
+.field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+  margin-bottom: 4px; /* Extra protection against overlap */
+  text-align: left;
+}
+
+/* Ensure the input doesn't have absolute positioning */
+.modal-content input[type="text"] {
+  position: relative;
+  display: block;
+  width: 100%;
+}

@@ -1,0 +1,1010 @@
+/* ═══════════════════════════════════════════════
+   RETAIN — app.js
+   Local-first with optional Supabase integration
+═══════════════════════════════════════════════ */
+
+// ─── CONFIG ────────────────────────────────────
+// To enable Supabase, fill these in and set USE_SUPABASE = true
+const SUPABASE_URL  = 'https://pdzmpxwwdhkvfrpoikcw.supabase.co';
+const SUPABASE_KEY  = 'sb_publishable_IOVF4cy-Ngwswm3Wy0HC6g_WPlXedk9';
+const USE_SUPABASE  = true;
+
+
+// ─── STATE ─────────────────────────────────────
+let currentYear = new Date().getFullYear();
+let projects       = {};        // { 2026: [...], 2027: [...], 2028: [...] }
+let editingId      = null;
+let selectedColor  = '#F59E0B';
+let activeFilter   = 'all';
+let holidays = []; // Format: { name: "Xmas", date: "2026-12-25", dayIdx: 359 }
+
+
+const STAFF = ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// Days in each month (non-leap base; leap handled dynamically)
+function daysInMonth(month, year) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function totalDaysInYear(year) {
+  return isLeapYear(year) ? 366 : 365;
+}
+
+function isLeapYear(year) {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+// ─── INIT ───────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+
+ // 1. Load the data first
+  await loadProjects(); 
+  
+  // 2. Build the UI based on that data
+  renderYearNav(); 
+  populateStaffFilter();
+  buildMonthsHeader();
+  renderAll();
+});
+
+// ADD YEAR
+// Open the Modal
+function addYear() {
+  document.getElementById('yearModal').classList.add('open');
+  document.getElementById('newYearInput').focus();
+}
+
+// Close the Modal
+function closeYearModal() {
+  document.getElementById('yearModal').classList.remove('open');
+  document.getElementById('newYearInput').value = '';
+}
+
+// Close when clicking outside the box
+function handleYearModalClick(e) {
+  if (e.target === document.getElementById('yearModal')) closeYearModal();
+}
+
+// Logic to Save and Create the Button
+function saveNewYear() {
+  const yearInput = document.getElementById('newYearInput').value;
+  const yearNum = parseInt(yearInput);
+
+  if (!yearNum || yearNum < 2000 || yearNum > 2100) {
+    alert("Please enter a valid year.");
+    return;
+  }
+
+  // 1. Initialize data for the new year if it doesn't exist
+  if (!projects[yearNum]) {
+    projects[yearNum] = [];
+  }
+
+  
+  // 2. Add the button to the sidebar
+  const nav = document.getElementById("yearNav");
+  
+  // Check if button already exists to avoid duplicates
+  const existingButtons = Array.from(nav.querySelectorAll('.year-btn'));
+  const alreadyExists = existingButtons.some(btn => parseInt(btn.textContent) === yearNum);
+
+  if (!alreadyExists) {
+    const btn = document.createElement("button");
+    btn.className = "year-btn";
+    btn.textContent = yearNum;
+    btn.onclick = () => switchYear(yearNum);
+    nav.appendChild(btn);
+  }
+
+  // 3. Cleanup and Update
+  saveProjects();
+  switchYear(yearNum);
+  closeYearModal();
+}
+
+// Ensure the listener points to the right function
+const addYearBtn = document.getElementById("add-year-btn");
+if (addYearBtn) {
+    addYearBtn.addEventListener("click", addYear);
+}
+
+// ─── YEAR SWITCH ────────────────────────────────
+function switchYear(year) {
+  currentYear = year;
+  document.getElementById('dashTitle').innerHTML =
+    `Assignment Dashboard <span class="year-badge">${year}</span>`;
+  
+    document.querySelectorAll('.year-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.textContent) === year);
+  });
+  
+  buildMonthsHeader();
+  renderAll();
+}
+
+// ─── MONTHS HEADER ──────────────────────────────
+function buildMonthsHeader() {
+  const header = document.getElementById('monthsHeader');
+  const now = new Date();
+  header.innerHTML = '';
+  
+  const totalDays = totalDaysInYear(currentYear);
+  header.style.display = 'grid';
+  header.style.gridTemplateColumns = `repeat(${totalDays}, 1fr)`;
+
+  MONTHS.forEach((m, i) => {
+    const daysCount = daysInMonth(i, currentYear);
+    const cell = document.createElement('div');
+    cell.className = 'month-cell';
+    cell.style.gridColumn = `span ${daysCount}`;
+    
+    // Highlight current month class
+    if (now.getFullYear() === currentYear && now.getMonth() === i) {
+      cell.classList.add('current-month');
+    }
+
+    // 1. Month Name Label
+    const monthLabel = document.createElement('div');
+    monthLabel.className = 'month-label';
+    monthLabel.textContent = m;
+    cell.appendChild(monthLabel);
+
+    // 2. Day Numbers Row
+    const daysRow = document.createElement('div');
+    daysRow.className = 'days-number-row';
+    daysRow.style.display = 'grid';
+    daysRow.style.gridTemplateColumns = `repeat(${daysCount}, 1fr)`;
+
+    for (let d = 1; d <= daysCount; d++) {
+      const dayNum = document.createElement('span');
+      dayNum.textContent = d;
+
+      // Today's Date Highlighting
+      const today = new Date();
+      if (today.getFullYear() === currentYear && today.getMonth() === i && today.getDate() === d) {
+        dayNum.style.color = '#F59E0B'; 
+        dayNum.style.fontWeight = 'bold';
+        dayNum.style.background = 'rgba(245,158,11,0.2)';
+      }
+      daysRow.appendChild(dayNum);
+    }
+    
+    cell.appendChild(daysRow);
+    header.appendChild(cell);
+    
+    // REMOVED: cell.textContent = m; (This was the culprit)
+  });
+}
+
+// ─── RENDER ALL ─────────────────────────────────
+function renderAll() {
+  const body = document.getElementById('rowsContainer');
+  // Re-enable empty state check
+  const empty = document.getElementById('emptyState'); 
+  body.innerHTML = '';
+
+  // 1. Remove existing rows, but KEEP the timeline-wrapper
+  const existingRows = body.querySelectorAll('.timeline-row');
+  existingRows.forEach(row => row.remove());
+
+  const yearProjects = (projects[currentYear] || []);
+  const filteredStaff = activeFilter === 'all'
+    ? STAFF
+    : STAFF.filter(s => s === activeFilter);
+
+  const totalDays = totalDaysInYear(currentYear);
+  let hasAny = false;
+
+  // Build the background highlights first
+  buildGridHighlights(totalDays);
+
+  filteredStaff.forEach(staffName => {
+    const staffProjects = yearProjects.filter(p => p.staff === staffName);
+    hasAny = hasAny || staffProjects.length > 0;
+
+    const row = document.createElement('div');
+    row.className = 'timeline-row';
+
+    // Staff cell
+    const staffCell = document.createElement('div');
+    staffCell.className = 'staff-cell';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'staff-avatar';
+    avatar.textContent = staffName[0];
+    staffCell.appendChild(avatar);
+    staffCell.appendChild(document.createTextNode(staffName));
+    row.appendChild(staffCell);
+
+    // Canvas - Fixed the double declaration here
+    const canvas = document.createElement('div');
+    canvas.className = 'row-canvas';
+    
+    // This applies the grid based on days
+    canvas.style.gridTemplateColumns = `repeat(${totalDays}, 1fr)`;
+    
+    //Set default lines first
+    canvas.style.backgroundImage = `linear-gradient(to right, rgba(0, 0, 0, 0.79) 1px, transparent 1px)`;
+    canvas.style.backgroundSize = `${100 / totalDays}% 100%`;
+
+    staffProjects.forEach(p => {
+      const bar = buildProjectBar(p, totalDays);
+      if (bar) canvas.appendChild(bar);
+    });
+
+    const today = new Date();
+    if (today.getFullYear() === currentYear) {
+        const dayIdx = dayOfYear(today);
+        highlightDay(canvas, dayIdx, 'rgba(245, 245, 31, 0.2)'); // Pale yellow highlight
+    }
+    
+    row.appendChild(canvas);
+    body.appendChild(row);
+  });
+  
+  highlightColumn(100, 'is-holiday')
+  if (empty) empty.classList.toggle('visible', !hasAny);
+
+  document.getElementById('projectCount').textContent =
+    `${yearProjects.length} project${yearProjects.length !== 1 ? 's' : ''}`;
+}
+
+
+function buildProjectBar(p, totalDays) {
+  const start = new Date(p.start + 'T00:00:00');
+  const end = new Date(p.end + 'T00:00:00');
+  if (isNaN(start) || isNaN(end)) return null;
+
+  const startDay = dayOfYear(start);
+  const endDay = dayOfYear(end);
+
+  // Position based on days
+  const leftPct = ((startDay - 1) / totalDays) * 100;
+  const widthPct = ((endDay - startDay + 1) / totalDays) * 100;
+
+  const bar = document.createElement('div');
+  bar.className = 'project-bar';
+  bar.style.left = `${leftPct}%`;
+  bar.style.width = `${widthPct}%`;
+  bar.style.background = p.color || '#F59E0B';
+
+  const textColor = getLuminance(p.color) > 0.4 ? 'rgba(0,0,0,0.8)' : '#fff';
+  bar.style.color = textColor;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'bar-name';
+  nameEl.style.color = textColor;
+  nameEl.textContent = p.name;
+
+  const dateEl = document.createElement('span');
+  dateEl.className = 'bar-dates';
+  dateEl.textContent = `${formatShort(start)} – ${formatShort(end)}`;
+
+  bar.appendChild(nameEl);
+  //bar.appendChild(dateEl);
+
+  bar.addEventListener('click', e => {
+    e.stopPropagation();
+    openEdit(p.id);
+  });
+
+  return bar;
+}
+
+// ─── FILTER ─────────────────────────────────────
+function filterView(type, value) {
+  activeFilter = type === 'all' ? 'all' : value;
+  document.getElementById('btnAll').classList.toggle('active', type === 'all');
+  if (type === 'all') {
+    document.getElementById('staffFilter').value = '';
+  }
+  renderAll();
+}
+
+// ─── FORM ───────────────────────────────────────
+function openForm() {
+   const form = document.getElementById('projectForm');
+  form.classList.remove('closing');
+
+  editingId = null;
+  document.getElementById('formTitle').textContent = 'Add Project';
+  document.getElementById('name').value = '';
+  document.getElementById('staff').value = STAFF[0];
+  document.getElementById('startDate').value = '';
+  document.getElementById('endDate').value   = '';
+  setSelectedColor('#F59E0B');
+  document.getElementById('deleteRow').style.display = 'none';
+  document.getElementById('projectForm').classList.add('open');
+}
+
+function openEdit(id) {
+  const p = findProject(id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('formTitle').textContent = 'Edit Project';
+  document.getElementById('name').value      = p.name;
+  document.getElementById('staff').value     = p.staff;
+  document.getElementById('startDate').value = p.start;
+  document.getElementById('endDate').value   = p.end;
+  setSelectedColor(p.color || '#F59E0B');
+  document.getElementById('deleteRow').style.display = 'block';
+  document.getElementById('projectForm').classList.add('open');
+}
+
+function closeForm() {
+  const form = document.getElementById('projectForm');
+
+  form.classList.remove('open');
+  form.classList.add('closing');
+
+  // Wait for animation to finish before fully resetting
+  setTimeout(() => {
+    form.classList.remove('closing');
+    editingId = null;
+  }, 180); // match CSS duration
+}
+
+function handleModalClick(e) {
+  if (e.target === document.getElementById('projectForm')) closeForm();
+}
+
+async function saveProject() {
+  const name  = document.getElementById('name').value.trim();
+  const staff = document.getElementById('staff').value;
+  const start = document.getElementById('startDate').value;
+  const end   = document.getElementById('endDate').value;
+  const color = selectedColor;
+
+  if (!name || !start || !end) {
+    alert('Please fill in all fields.');
+    return;
+  }
+  if (new Date(start) > new Date(end)) {
+    alert('Start date must be before end date.');
+    return;
+  }
+
+  if (editingId !== null) {
+    const p = findProject(editingId);
+    if (p) Object.assign(p, { name, staff, start, end, color });
+  } else {
+    const newP = { id: Date.now(), name, staff, start, end, color };
+    if (!projects[currentYear]) projects[currentYear] = [];
+    projects[currentYear].push(newP);
+  }
+
+  await saveProjects();
+  closeForm();
+  renderAll();
+}
+
+async function deleteProject() {
+  if (editingId === null) return;
+  projects[currentYear] = (projects[currentYear] || []).filter(p => p.id !== editingId);
+  await saveProjects();
+  closeForm();
+  renderAll();
+}
+
+// ─── COLOR PICKER ───────────────────────────────
+function selectColor(el) {
+  selectedColor = el.dataset.color;
+  
+  // Remove active class from all swatches (including custom)
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  
+  // Add active class to clicked swatch
+  el.classList.add('active');
+  
+  // Reset the custom trigger background if a preset is picked
+  document.getElementById('customSwatch').style.background = 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)';
+}
+
+// Function for the custom picker
+function handleCustomColor(hex) {
+  selectedColor = hex;
+  
+  const customSwatch = document.getElementById('customSwatch');
+  
+  // Update UI to show the custom color is active
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  customSwatch.classList.add('active');
+  
+  // Change the rainbow background to the selected solid color
+  customSwatch.style.background = hex;
+}
+
+// Update setSelectedColor (used when editing a project)
+function setSelectedColor(hex) {
+  selectedColor = hex;
+  let matched = false;
+  
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    const isMatch = s.dataset.color === hex;
+    s.classList.toggle('active', isMatch);
+    if (isMatch) matched = true;
+  });
+
+  // If the color isn't a preset, treat it as custom
+  if (!matched) {
+    const customSwatch = document.getElementById('customSwatch');
+    customSwatch.classList.add('active');
+    customSwatch.style.background = hex;
+    document.getElementById('customColorInput').value = hex;
+  }
+}
+
+function triggerCustomColor() {
+  document.getElementById('customColorInput').click();
+}
+
+// ─── PERSISTENCE: LOCAL STORAGE ─────────────────
+function loadFromLocal() {
+  const raw = localStorage.getItem('retain_projects');
+  return raw ? JSON.parse(raw) : { 2026: [], 2027: [], 2028: [] };
+}
+
+function saveToLocal() {
+  localStorage.setItem('retain_projects', JSON.stringify(projects));
+}
+
+// ─── PERSISTENCE: SUPABASE ──────────────────────
+// Requires: <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+// in your <head>. The free Supabase tier is plenty for this use case.
+//
+// Supabase table setup (run in Supabase SQL editor):
+// ─────────────────────────────────────────────────
+//   create table projects (
+//     id         bigint primary key,
+//     year       int         not null,
+//     name       text        not null,
+//     staff      text        not null,
+//     start_date date        not null,
+//     end_date   date        not null,
+//     color      text        not null default '#F59E0B'
+//   );
+//   -- Enable Row Level Security (RLS) for a team:
+//   alter table projects enable row level security;
+//   create policy "allow all" on projects for all using (true);
+// ─────────────────────────────────────────────────
+
+function initSupabase() {
+  if (!USE_SUPABASE || !window.supabase) return null;
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+}
+
+async function loadFromSupabase() {
+  const { data, error } = await supabase.from('projects').select('*');
+  if (error) { console.error(error); return null; }
+
+  const grouped = { 2026: [], 2027: [], 2028: [] };
+  data.forEach(row => {
+    if (!grouped[row.year]) grouped[row.year] = [];
+    grouped[row.year].push({
+      id:    row.id,
+      name:  row.name,
+      staff: row.staff,
+      start: row.start_date,
+      end:   row.end_date,
+      color: row.color,
+    });
+  });
+  return grouped;
+}
+
+async function saveToSupabase() {
+  // Upsert all projects across all years
+  const rows = [];
+  [2026, 2027, 2028].forEach(year => {
+    (projects[year] || []).forEach(p => {
+      rows.push({
+        id:         p.id,
+        year,
+        name:       p.name,
+        staff:      p.staff,
+        start_date: p.start,
+        end_date:   p.end,
+        color:      p.color,
+      });
+    });
+  });
+  const { error } = await supabase.from('projects').upsert(rows);
+  if (error) console.error('Supabase save error:', error);
+}
+
+// ─── UNIFIED LOAD / SAVE ────────────────────────
+async function loadProjects() {
+  if (USE_SUPABASE) {
+    supabase = initSupabase();
+    const data = await loadFromSupabase();
+    if (data) {
+      projects = data;
+      updateDbStatus('Supabase', true);
+      return;
+    }
+  }
+  projects = loadFromLocal();
+  updateDbStatus('Local Storage', false);
+}
+
+async function saveProjects() {
+  if (USE_SUPABASE && supabase) {
+    await saveToSupabase();
+  } else {
+    saveToLocal();
+  }
+}
+
+function updateDbStatus(label, isRemote) {
+  const el = document.getElementById('dbStatus');
+  el.querySelector('span:last-child').textContent = label;
+  el.querySelector('.db-dot').style.background = isRemote ? '#6366F1' : '#10B981';
+  el.querySelector('.db-dot').style.boxShadow  = isRemote
+    ? '0 0 6px #6366F1'
+    : '0 0 6px #10B981';
+}
+
+// ─── HELPERS ────────────────────────────────────
+function findProject(id) {
+  for (const year in projects) {
+    const p = (projects[year] || []).find(p => p.id === id);
+    if (p) return p;
+  }
+  return null;
+}
+
+function dayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff  = date - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay);
+}
+
+function daysBetween(a, b) {
+  return Math.round(Math.abs(b - a) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+function formatShort(date) {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+function formatFull(date) {
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getLuminance(hex) {
+  if (!hex || hex[0] !== '#') return 0.5;
+  const r = parseInt(hex.slice(1,3),16) / 255;
+  const g = parseInt(hex.slice(3,5),16) / 255;
+  const b = parseInt(hex.slice(5,7),16) / 255;
+  return 0.299*r + 0.587*g + 0.114*b;
+}
+
+// ─── UNIFIED COLOR PICKER LOGIC ─────────────────
+const panel = document.getElementById('pickerPanel');
+const canvas = document.getElementById('colorCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const hueRange = document.getElementById('hueRange');
+const customSwatch = document.getElementById('customSwatch');
+const cursor = document.getElementById('pickerCursor');
+
+let currentHue = 0;
+
+function toggleCustomPicker() {
+  panel.classList.toggle('hidden');
+  drawCanvas();
+}
+
+// Handle Preset Swatches
+function selectColor(el) {
+  selectedColor = el.dataset.color; // Update the global state
+  
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  
+  // Reset custom swatch appearance
+  customSwatch.style.background = 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)';
+  panel.classList.add('hidden'); 
+}
+
+// Draw the Canvas Gradient
+function drawCanvas() {
+  const width = canvas.width = 200;
+  const height = canvas.height = 150;
+
+  ctx.fillStyle = `hsl(${currentHue}, 100%, 50%)`;
+  ctx.fillRect(0, 0, width, height);
+
+  let whiteGrad = ctx.createLinearGradient(0, 0, width, 0);
+  whiteGrad.addColorStop(0, 'white');
+  whiteGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = whiteGrad;
+  ctx.fillRect(0, 0, width, height);
+
+  let blackGrad = ctx.createLinearGradient(0, 0, 0, height);
+  blackGrad.addColorStop(0, 'rgba(0,0,0,0)');
+  blackGrad.addColorStop(1, 'black');
+  ctx.fillStyle = blackGrad;
+  ctx.fillRect(0, 0, width, height);
+}
+
+// Update setSelectedColor (Used when OPENING the edit modal)
+function setSelectedColor(hex) {
+  selectedColor = hex;
+  let matched = false;
+  
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    const isMatch = s.dataset.color === hex;
+    s.classList.toggle('active', isMatch);
+    if (isMatch) matched = true;
+  });
+
+  if (!matched) {
+    customSwatch.classList.add('active');
+    customSwatch.style.background = hex;
+  } else {
+    customSwatch.style.background = 'linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet)';
+  }
+}
+
+// Hue Slider Event
+hueRange.addEventListener('input', () => {
+  currentHue = hueRange.value;
+  drawCanvas();
+});
+
+// Canvas Interaction
+canvas.addEventListener('mousedown', (e) => {
+  const pick = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(event.clientX - rect.left, rect.width));
+    const y = Math.max(0, Math.min(event.clientY - rect.top, rect.height));
+
+    const pixel = ctx.getImageData(x, y, 1, 1).data;
+    const hex = "#" + ((1 << 24) + (pixel[0] << 16) + (pixel[1] << 8) + pixel[2]).toString(16).slice(1);
+    
+    // Update global state and UI
+    selectedColor = hex;
+    cursor.style.left = x + 'px';
+    cursor.style.top = y + 'px';
+    customSwatch.style.background = hex;
+    
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    customSwatch.classList.add('active');
+  };
+
+  pick(e);
+  window.onmousemove = pick;
+  window.onmouseup = () => window.onmousemove = null;
+});
+
+// Click outside to close
+window.addEventListener('click', (e) => {
+  if (!e.target.closest('.color-row') && !e.target.closest('.picker-panel')) {
+    panel.classList.add('hidden');
+  }
+});
+
+function highlightDay(canvas, dayIndex, color = 'rgba(227, 216, 56, 0.68)') {
+    const totalDays = totalDaysInYear(currentYear);
+    const startPos = ((dayIndex - 1) / totalDays) * 100;
+    const endPos = (dayIndex / totalDays) * 100;
+
+    // We combine the existing daily lines with a new highlight stripe
+    canvas.style.backgroundImage = `
+        linear-gradient(
+            to right, 
+            transparent ${startPos}%, 
+            ${color} ${startPos}%, 
+            ${color} ${endPos}%, 
+            transparent ${endPos}%
+        ),
+        linear-gradient(to right, var(--border) 1px, transparent 1px)`;
+    canvas.style.backgroundSize = `100% 100%, ${100 / totalDays}% 100%`;
+    canvas.style.backgroundRepeat = `no-repeat, repeat-x`;
+}
+
+function buildGridHighlights(totalDays) {
+  const layer = document.getElementById('gridHighlightLayer');
+  if (!layer) return;
+
+  layer.innerHTML = '';
+  // SYNC: Force the highlight grid to match Staff Column + Days exactly
+  layer.style.gridTemplateColumns = `var(--staff-col-w) repeat(${totalDays}, 1fr)`;
+  layer.style.width = "8000px"; // Must match your CSS width
+
+  const now = new Date();
+  // Standardize "Today" to midnight for accurate comparison
+  const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  for (let d = 1; d <= totalDays; d++) {
+    const date = new Date(currentYear, 0, d);
+    const dateStr = date.getTime();
+    
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const isToday = (currentYear === now.getFullYear() && dateStr === todayAtMidnight);
+
+    if (isWeekend || isToday) {
+      const highlight = document.createElement('div');
+      highlight.className = 'col-highlight';
+      // gridColumn is d + 1 because track 1 is the Staff Name
+      highlight.style.gridColumn = d + 1; 
+
+      if (isWeekend) highlight.classList.add('is-weekend');
+      if (isToday) highlight.classList.add('is-today');
+
+      layer.appendChild(highlight);
+    }
+  }
+
+  // NEW: Add Holiday Highlights
+  holidays.forEach(h => {
+    const hDate = new Date(h.date);
+    // Only show if the holiday year matches the current dashboard year
+    if (hDate.getFullYear() === currentYear) {
+      const highlight = document.createElement('div');
+      highlight.className = 'col-highlight is-holiday';
+      highlight.style.gridColumn = h.dayIdx + 1;
+      
+      // Optional: Add a tiny tooltip or label
+      highlight.title = h.name; 
+      
+      layer.appendChild(highlight);
+    }
+  });
+}
+
+/**
+ * Highlights a specific day column across the whole timeline
+ * @param {number} dayOfYear - The day number (1-365)
+ * @param {string} className - The CSS class to apply (e.g., 'is-today' or 'is-holiday')
+ */
+function highlightColumn(dayOfYear, className) {
+  const layer = document.getElementById('gridHighlightLayer');
+  const highlight = document.createElement('div');
+  
+  highlight.className = `col-highlight ${className}`;
+  
+  // dayOfYear + 1 because the first grid column is the Staff Column
+  highlight.style.gridColumn = dayOfYear + 1; 
+  
+  layer.appendChild(highlight);
+}
+
+function populateStaffFilter() {
+  const filter = document.getElementById('staffFilter');
+  const staffSelect = document.getElementById('staff'); // The one in the "Add Project" modal
+  
+  // Save the first "default" option
+  const defaultOption = filter.options[0];
+  
+  // Clear existing options
+  filter.innerHTML = '';
+  filter.appendChild(defaultOption);
+  
+  // Also clear the "Add Project" modal dropdown if you want that synced too
+  if (staffSelect) staffSelect.innerHTML = '';
+
+  STAFF.forEach(name => {
+    // 1. Add to the Filter Dropdown
+    const optFilter = document.createElement('option');
+    optFilter.textContent = name;
+    optFilter.value = name;
+    filter.appendChild(optFilter);
+
+    // 2. Add to the Modal Dropdown (Project Form)
+    if (staffSelect) {
+      const optModal = document.createElement('option');
+      optModal.textContent = name;
+      optModal.value = name;
+      staffSelect.appendChild(optModal);
+    }
+  });
+}
+
+function renderYearNav() {
+  const nav = document.getElementById("yearNav");
+  nav.innerHTML = ''; // Clear hardcoded buttons
+  
+  // Get all years, sort them, and create buttons
+  Object.keys(projects).sort().forEach(year => {
+    const btn = document.createElement("button");
+    btn.className = "year-btn";
+    if (parseInt(year) === currentYear) btn.classList.add('active');
+    btn.textContent = year;
+    btn.onclick = () => switchYear(parseInt(year));
+    nav.appendChild(btn);
+  });
+}
+
+// Open/Close functions
+function openStaffModal() {
+  document.getElementById('staffModal').classList.add('open');
+  renderStaffList();
+}
+
+function closeStaffModal() {
+  document.getElementById('staffModal').classList.remove('open');
+  document.getElementById('newStaffName').value = '';
+}
+
+function handleStaffModalClick(e) {
+  if (e.target === document.getElementById('staffModal')) closeStaffModal();
+}
+
+// Render the list of current staff with delete buttons
+function renderStaffList() {
+  const container = document.getElementById('staffListContainer');
+  container.innerHTML = '';
+  
+  STAFF.forEach((member, index) => {
+    const item = document.createElement('div');
+    item.style = "display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-soft); color: white; font-size: 14px;";
+    item.innerHTML = `
+      <span>${member}</span>
+      <button onclick="removeStaff(${index})" style="width: auto; background: #f9f9f9; color: var(--danger); padding: 3px; border: none;">Remove</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// Logic to Add Staff
+function addStaff() {
+  const nameInput = document.getElementById('newStaffName');
+  const name = nameInput.value.trim();
+  
+  if (name && !STAFF.includes(name)) {
+    STAFF.push(name);
+    nameInput.value = '';
+    
+    // Refresh the UI
+    populateStaffFilter(); // Syncs your dropdowns
+    renderStaffList();     // Updates this modal's list
+    renderAll();           // Rebuilds the timeline rows
+  }
+}
+
+// Logic to Remove Staff
+function removeStaff(index) {
+  if (confirm(`Remove ${STAFF[index]}? This won't delete their existing projects but they will no longer appear in filters.`)) {
+    STAFF.splice(index, 1);
+    populateStaffFilter();
+    renderStaffList();
+    renderAll();
+  }
+}
+
+
+// Open/Close
+function openHolidayModal() {
+  document.getElementById('holidayModal').classList.add('open');
+  renderHolidayList();
+}
+
+function closeHolidayModal() {
+  document.getElementById('holidayModal').classList.remove('open');
+}
+
+function handleHolidayModalClick(e) {
+  if (e.target === document.getElementById('holidayModal')) closeHolidayModal();
+}
+
+// Add Holiday Logic
+function addHoliday() {
+  const name = document.getElementById('holidayName').value.trim();
+  const dateVal = document.getElementById('holidayDate').value;
+
+  if (!name || !dateVal) return alert("Please fill both fields");
+
+  const dateObj = new Date(dateVal);
+  const dayIdx = dayOfYear(dateObj);
+
+  holidays.push({ name, date: dateVal, dayIdx });
+  
+  // Cleanup and Refresh
+  document.getElementById('holidayName').value = '';
+  document.getElementById('holidayDate').value = '';
+  renderHolidayList();
+  renderAll(); // Re-renders the timeline with new highlights
+}
+
+// Remove Holiday
+function removeHoliday(index) {
+  holidays.splice(index, 1);
+  renderHolidayList();
+  renderAll();
+}
+
+// UI List inside Modal
+function renderHolidayList() {
+  const container = document.getElementById('holidayListContainer');
+  container.innerHTML = '';
+  
+  holidays.forEach((h, i) => {
+    const item = document.createElement('div');
+    item.className = 'staff-list-item'; // Reuse your staff list item style
+    item.style = "display: flex; justify-content: space-between; padding: 8px; color: white; font-size: 13px;";
+    item.innerHTML = `
+      <span>${h.name} (${formatShort(new Date(h.date))})</span>
+      <button onclick="removeHoliday(${i})" style="background:transparent; color:var(--danger); border:none; cursor:pointer;">Remove</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// Open the Modal and show existing years
+function addYear() {
+  document.getElementById('yearModal').classList.add('open');
+  renderYearList(); // New: show the list
+  document.getElementById('newYearInput').focus();
+}
+
+// Render the list of years with delete buttons
+function renderYearList() {
+  const container = document.getElementById('yearListContainer');
+  container.innerHTML = '';
+  
+  // Get all years currently in our projects object
+  const existingYears = Object.keys(projects).sort((a, b) => a - b);
+  
+  existingYears.forEach(year => {
+    const item = document.createElement('div');
+    item.style = "display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-soft); color: white; font-size: 14px;";
+    
+    // Don't allow deleting the year currently being viewed to avoid UI crashes
+    const isCurrent = parseInt(year) === currentYear;
+    
+    item.innerHTML = `
+      <span>${year} ${isCurrent ? '<small>(Active)</small>' : ''}</span>
+      ${!isCurrent ? `<button onclick="removeYear(${year})" style="width: auto; background: #f9f9f9; color: var(--danger); border: none; cursor: pointer; font-size: 12px;">Remove</button>` : ''}
+    `;
+    container.appendChild(item);
+  });
+}
+
+// Logic to Delete a Year
+async function removeYear(year) {
+  if (confirm(`Are you sure you want to remove ${year}? All projects for this year will be deleted.`)) {
+    // 1. Remove from data object
+    delete projects[year];
+    
+    // 2. Remove the button from the sidebar
+    const nav = document.getElementById("yearNav");
+    const buttons = Array.from(nav.querySelectorAll('.year-btn'));
+    const btnToRemove = buttons.find(btn => parseInt(btn.textContent) === year);
+    if (btnToRemove) btnToRemove.remove();
+    
+    // 3. Save and refresh
+    await saveProjects();
+    renderYearList();
+  }
+}
+
+// Update your saveNewYear to refresh the list
+function saveNewYear() {
+  const yearInput = document.getElementById('newYearInput').value;
+  const yearNum = parseInt(yearInput);
+
+  if (!yearNum || yearNum < 2000 || yearNum > 2100) {
+    alert("Please enter a valid year.");
+    return;
+  }
+
+  if (!projects[yearNum]) {
+    projects[yearNum] = [];
+    
+    // Add button to sidebar
+    const nav = document.getElementById("yearNav");
+    const btn = document.createElement("button");
+    btn.className = "year-btn";
+    btn.textContent = yearNum;
+    btn.onclick = () => switchYear(yearNum);
+    nav.appendChild(btn);
+  }
+
+  saveProjects();
+  renderYearList(); // Refresh the list in the modal
+  document.getElementById('newYearInput').value = '';
+}
