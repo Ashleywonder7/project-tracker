@@ -16,10 +16,10 @@ let projects       = {};        // { 2026: [...], 2027: [...], 2028: [...] }
 let editingId      = null;
 let selectedColor  = '#F59E0B';
 let activeFilter   = 'all';
+let STAFF = [];
 let holidays = []; // Format: { name: "Xmas", date: "2026-12-25", dayIdx: 359 }
 
 
-const STAFF = ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // Days in each month (non-leap base; leap handled dynamically)
@@ -196,9 +196,6 @@ function renderAll() {
   const totalDays = totalDaysInYear(currentYear);
   let hasAny = false;
 
-  // Build the background highlights first
-  buildGridHighlights(totalDays);
-
   filteredStaff.forEach(staffName => {
     const staffProjects = yearProjects.filter(p => p.staff === staffName);
     hasAny = hasAny || staffProjects.length > 0;
@@ -241,8 +238,10 @@ function renderAll() {
     
     row.appendChild(canvas);
     body.appendChild(row);
+    updateNotifBadge();
   });
   
+  buildGridHighlights(totalDays);
 
   if (empty) empty.classList.toggle('visible', !hasAny);
 
@@ -355,6 +354,14 @@ async function saveProject() {
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
   const color = selectedColor;
+
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true); // Start Indicator
+    await saveToSupabase();
+    setSyncing(false); // Stop Indicator
+  } else {
+    saveToLocal();
+  }
 
   if (!name || !start || !end) {
     alert('Please fill in all fields.');
@@ -513,19 +520,59 @@ async function saveToSupabase() {
   if (error) console.error('Supabase save error:', error);
 }
 
-// ─── UNIFIED LOAD / SAVE ────────────────────────
+/// ─── UNIFIED LOAD / SAVE (REPLACEMENT BLOCK) ────────────────────────
 async function loadProjects() {
+  let success = false;
+
+  // 1. Attempt Supabase Load
   if (USE_SUPABASE) {
-    supabase = initSupabase();
-    const data = await loadFromSupabase();
-    if (data) {
-      projects = data;
-      updateDbStatus('Supabase', true);
-      return;
+    try {
+      supabase = initSupabase(); //
+      
+      // Fetch both projects and staff in parallel
+      const [remoteProjects, { data: staffData, error: staffError }] = await Promise.all([
+        loadFromSupabase(), //
+        supabase.from('staff').select('name') //
+      ]);
+
+      if (!staffError && staffData) {
+        // Update state with cloud data
+        if (staffData.length > 0) {
+          STAFF = staffData.map(s => s.name); //
+        }
+        projects = remoteProjects || projects;
+        
+        updateDbStatus('Supabase', true); // Indigo dot for Cloud
+        success = true;
+      }
+    } catch (err) {
+      console.warn("Supabase connection failed, falling back to local storage:", err);
     }
   }
-  projects = loadFromLocal();
-  updateDbStatus('Local Storage', false);
+
+  // 2. Local Fallback (runs if Supabase is disabled OR fetch failed)
+  if (!success) {
+    projects = loadFromLocal(); //
+    const rawStaff = localStorage.getItem('retain_staff'); //
+    
+    if (rawStaff) {
+      STAFF = JSON.parse(rawStaff); //
+    } else {
+      // Hardcoded defaults for a brand new local user
+      STAFF = ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene']; //
+      if (Object.keys(projects).length === 0) {
+        projects = { 2026: [], 2027: [], 2028: [] }; //
+      }
+    }
+    
+    updateDbStatus('Local Storage', false); // Green dot for Local
+  }
+}
+
+function loadStaffLocal() {
+  const raw = localStorage.getItem('retain_staff');
+  // Use saved list OR the original defaults if nothing exists
+  STAFF = raw ? JSON.parse(raw) : ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene'];
 }
 
 async function saveProjects() {
@@ -709,28 +756,30 @@ function buildGridHighlights(totalDays) {
   const layer = document.getElementById('gridHighlightLayer');
   if (!layer) return;
 
+  // 1. Sync the CSS variable for the grid columns
+  document.documentElement.style.setProperty('--total-days', totalDays);
+
   layer.innerHTML = '';
-  // SYNC: Force the highlight grid to match Staff Column + Days exactly
   layer.style.gridTemplateColumns = `var(--staff-col-w) repeat(${totalDays}, 1fr)`;
-  layer.style.width = "8000px"; // Must match your CSS width
+  
+  // 2. Match the width of your other timeline elements
+  layer.style.width = "8000px"; 
 
   const now = new Date();
-  // Standardize "Today" to midnight for accurate comparison
   const todayAtMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
   for (let d = 1; d <= totalDays; d++) {
     const date = new Date(currentYear, 0, d);
     const dateStr = date.getTime();
-    
     const dayOfWeek = date.getDay();
+    
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     const isToday = (currentYear === now.getFullYear() && dateStr === todayAtMidnight);
 
     if (isWeekend || isToday) {
       const highlight = document.createElement('div');
       highlight.className = 'col-highlight';
-      // gridColumn is d + 1 because track 1 is the Staff Name
-      highlight.style.gridColumn = d + 1; 
+      highlight.style.gridColumn = d + 1; // +1 to skip staff column
 
       if (isWeekend) highlight.classList.add('is-weekend');
       if (isToday) highlight.classList.add('is-today');
@@ -739,20 +788,24 @@ function buildGridHighlights(totalDays) {
     }
   }
 
-  // NEW: Add Holiday Highlights
+  // Add Holidays
   holidays.forEach(h => {
     const hDate = new Date(h.date);
-    // Only show if the holiday year matches the current dashboard year
     if (hDate.getFullYear() === currentYear) {
       const highlight = document.createElement('div');
       highlight.className = 'col-highlight is-holiday';
       highlight.style.gridColumn = h.dayIdx + 1;
-      
-      // Optional: Add a tiny tooltip or label
-      highlight.title = h.name; 
-      
       layer.appendChild(highlight);
     }
+  });
+
+  // Sync height to cover all rows, not just the visible viewport
+  requestAnimationFrame(() => {
+    const wrapper = document.querySelector('.timeline-wrapper');
+    const rowsContainer = document.getElementById('rowsContainer');
+    const wrapperH = wrapper ? wrapper.offsetHeight : 0;
+    const rowsH = rowsContainer ? rowsContainer.offsetHeight : 0;
+    layer.style.height = (wrapperH + rowsH) + 'px';
   });
 }
 
@@ -844,38 +897,54 @@ function renderStaffList() {
     item.style = "display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-soft); color: white; font-size: 14px;";
     item.innerHTML = `
       <span>${member}</span>
-      <button onclick="removeStaff(${index})" style="width: auto; background: #f9f9f9; color: var(--danger); padding: 3px; border: none;">Remove</button>
+      <button onclick="removeStaff(${index})" style="width: auto; background: #f9f9f9; color: var(--danger); border: none; cursor: pointer; font-size: 12px;">Remove</button>
     `;
     container.appendChild(item);
   });
 }
 
 // Logic to Add Staff
-function addStaff() {
+async function addStaff() {
   const nameInput = document.getElementById('newStaffName');
   const name = nameInput.value.trim();
   
   if (name && !STAFF.includes(name)) {
     STAFF.push(name);
-    nameInput.value = '';
     
-    // Refresh the UI
-    populateStaffFilter(); // Syncs your dropdowns
-    renderStaffList();     // Updates this modal's list
-    renderAll();           // Rebuilds the timeline rows
-  }
-}
+    // Save locally immediately
+    localStorage.setItem('retain_staff', JSON.stringify(STAFF));
+    
+    // Save to Supabase if active
+    if (USE_SUPABASE && supabase) {
+      await supabase.from('staff').insert([{ name }]);
+    }
 
-// Logic to Remove Staff
-function removeStaff(index) {
-  if (confirm(`Remove ${STAFF[index]}? This won't delete their existing projects but they will no longer appear in filters.`)) {
-    STAFF.splice(index, 1);
+    nameInput.value = '';
     populateStaffFilter();
     renderStaffList();
     renderAll();
   }
 }
 
+// Logic to Remove Staff
+async function removeStaff(index) {
+  const nameToRemove = STAFF[index];
+  if (confirm(`Remove ${nameToRemove}?`)) {
+    STAFF.splice(index, 1);
+    
+    // Update local storage
+    localStorage.setItem('retain_staff', JSON.stringify(STAFF));
+    
+    // Remove from Supabase
+    if (USE_SUPABASE && supabase) {
+      await supabase.from('staff').delete().eq('name', nameToRemove);
+    }
+
+    populateStaffFilter();
+    renderStaffList();
+    renderAll();
+  }
+}
 
 // Open/Close
 function openHolidayModal() {
@@ -928,7 +997,7 @@ function renderHolidayList() {
     item.style = "display: flex; justify-content: space-between; padding: 8px; color: white; font-size: 13px;";
     item.innerHTML = `
       <span>${h.name} (${formatShort(new Date(h.date))})</span>
-      <button onclick="removeHoliday(${i})" style="background:transparent; color:var(--danger); border:none; cursor:pointer;">Remove</button>
+      <button onclick="removeHoliday(${i})" style="width: auto; background: #f9f9f9; color: var(--danger); border: none; cursor: pointer; font-size: 12px;">Remove</button>
     `;
     container.appendChild(item);
   });
@@ -1007,4 +1076,124 @@ function saveNewYear() {
   saveProjects();
   renderYearList(); // Refresh the list in the modal
   document.getElementById('newYearInput').value = '';
+}
+
+// --- NOTIFICATION LOGIC ---
+function openNotifModal() {
+  const modal = document.getElementById('notifModal');
+  if (modal) {
+    modal.classList.add('open');
+    renderNotifList(); // Make sure this function exists too!
+  } else {
+    console.error("Could not find notifModal element");
+  }
+}
+
+function closeNotifModal() {
+  document.getElementById('notifModal').classList.remove('open');
+}
+
+function handleNotifModalClick(e) {
+  if (e.target === document.getElementById('notifModal')) closeNotifModal();
+}
+
+
+function getProjectAlerts() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let alerts = [];
+  const realYear = new Date().getFullYear();
+  const activeProjects = projects[realYear] || [];
+
+  activeProjects.forEach(p => {
+    const dueDate = new Date(p.end + 'T00:00:00');
+    dueDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = dueDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= -1) {
+      const daysOverdue = Math.abs(diffDays);
+      alerts.push({ 
+        name: p.name, 
+        staff: p.staff, 
+        type: 'past', 
+        daysDiff: diffDays, // Store for sorting
+        msg: `Overdue by ${daysOverdue} day${daysOverdue > 1 ? 's' : ''}` 
+      });
+    } else if (diffDays === 0) {
+      alerts.push({ 
+        name: p.name, 
+        staff: p.staff, 
+        type: 'due', 
+        daysDiff: 0, 
+        msg: 'Due today' 
+      });
+    } else if (diffDays > 0 && diffDays <= 3) {
+      alerts.push({ 
+        name: p.name, 
+        staff: p.staff, 
+        type: 'soon', 
+        daysDiff: diffDays, 
+        msg: `Due in ${diffDays} days` 
+      });
+    }
+  });
+  
+  // SORTING LOGIC: Smallest (most negative) number comes first.
+  // This puts -5 (overdue) before -1, before 0 (today), before 3 (soon).
+  return alerts.sort((a, b) => a.daysDiff - b.daysDiff);
+}
+
+function updateNotifBadge() {
+  const alerts = getProjectAlerts();
+  const badge = document.getElementById('notifBadge');
+  
+  if (alerts.length > 0) {
+    badge.textContent = alerts.length;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function renderNotifList() {
+  const container = document.getElementById('notifListContainer');
+  const alerts = getProjectAlerts();
+  container.innerHTML = '';
+
+  if (alerts.length === 0) {
+    container.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 20px;">No urgent alerts right now.</p>';
+    return;
+  }
+
+  alerts.forEach(a => {
+    const item = document.createElement('div');
+    item.className = `notif-item status-${a.type}`;
+    item.innerHTML = `
+      <div class="notif-info">
+        <strong>${a.name}</strong>
+        <span>Assignee: ${a.staff}</span>
+      </div>
+      <div class="notif-status">${a.msg}</div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function setSyncing(isSyncing) {
+  const dot = document.querySelector('.db-dot');
+  const label = document.querySelector('#dbStatus span:last-child');
+  
+  if (isSyncing) {
+    dot.classList.add('syncing');
+    label.classList.add('sync-text');
+    label.dataset.originalText = label.textContent; // Store "Supabase" or "Local Storage"
+    label.textContent = "Syncing...";
+  } else {
+    dot.classList.remove('syncing');
+    label.classList.remove('sync-text');
+    label.textContent = label.dataset.originalText || "Supabase";
+  }
 }

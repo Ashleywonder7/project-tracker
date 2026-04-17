@@ -127,7 +127,7 @@ body {
 
 #staff-btn {
   white-space: nowrap;  /* Prevents the text from breaking into two lines */
-  width: 75%;   /* Allows the button to grow to fit the text */
+  width: 90%;   /* Allows the button to grow to fit the text */
   padding: 7px 15px;    /* Adds a bit of breathing room on the sides */
   display: block;       /* Ensures it respects the bottom margin */
   text-align: left;
@@ -137,14 +137,14 @@ body {
 
 /* ADD YEAR BUTTON */
 button {
-  width: 75%;
+  width: 90%;
   padding: 5px 12px;
   background:#5773a4;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: #ebe7e7;
-  font-family: 'DM Mono', monospace;
-  font-size: 14px;
+  font-family: 'Syne', monospace;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
@@ -310,10 +310,10 @@ button {
 /* Update these to the same value */
 .timeline-wrapper, 
 .timeline-row,
-#rowsContainer {
-  display: flex;
-  width: 8000px;     /* Increase this (e.g., to 8000px) for wider days */
-  min-width: 6000px; /* Adjust this value as needed */
+#rowsContainer,
+#gridHighlightLayer { /* Add this ID here */
+    display: flex;
+    width: 8000px; 
 }
 
 .staff-header {
@@ -327,8 +327,8 @@ button {
   background: #5f7cd2;
   width: var(--staff-col-w);
   text-align: center;
-  padding: 10px 14px;
-  font-size: 13px;
+  padding: 16px 16px;
+  font-size: 20px;
   color: #f9f9f9;
   font-weight: 500;
   box-sizing: border-box;
@@ -351,7 +351,7 @@ button {
   font-size: 10px;
   font-weight: 600;
   font-family: 'DM Mono', monospace;
-  color: rgba(233, 233, 243, 0.929);
+  color: rgba(244, 244, 247, 0.979);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   border-right: 2px solid var(--text-primary);
@@ -364,7 +364,7 @@ button {
 }
 
 .month-cell.current-month {
-  color: rgba(201, 165, 66, 0.97);
+  color: rgba(255, 217, 111, 0.97);
   font-weight: bold;
 }
 
@@ -399,13 +399,25 @@ button {
 
 /* ─── TIMELINE BODY ───────────────────────── */
 .timeline-body {
-  flex: 1;
-  display: block;
-  width: 100%;
-  flex-direction: column;
-  overflow: auto;
-  position: relative;
+    flex: 1;
+    display: block;
+    width: 100%;
+    position: relative; /* CRITICAL: This allows the highlight layer to anchor to the top */
+    overflow-x: auto;   /* Allows horizontal scroll */
+    overflow-y: auto;   /* Allows vertical scroll */
 }
+
+.timeline-row, 
+.row-canvas {
+    background: transparent; /* Ensure nothing hides the grid stripes */
+}
+
+/* Ensure the Today highlight is bold enough to be seen through grid lines */
+.is-today {
+    background: rgba(245, 159, 11, 0.45);
+    z-index: 1; /* Slightly higher than other highlights but lower than bars */
+}
+
 
 .timeline-body::-webkit-scrollbar { width: 4px; }
 .timeline-body::-webkit-scrollbar-track { background: transparent; }
@@ -417,6 +429,8 @@ button {
   min-width: 5000px;
   border-bottom: 1px solid var(--border-soft);
   position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .timeline-row:hover .staff-cell {
@@ -859,6 +873,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
+  text-align: center;
 }
 
 .btn-delete:hover {
@@ -891,19 +906,21 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 #gridHighlightLayer {
-  position: absolute;
-  top: 0;
-  left: 0; /* Offset by the sticky staff column */
-  right: 0;
-  bottom: 0;
-  height: 100%;
-  display: grid;
-  /* Columns will be set by JS (repeat(365, 1fr)) */
-  pointer-events: none; 
-  z-index: 0; /* Behind everything */
-  /* This ensures the grid tracks are identical to your header/rows */
-  /*grid-template-columns: var(--staff-col-w) repeat(365, 1fr);*/
-  width: 5000px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* Height is set dynamically by JS to match the full scrollable content */
+    height: 0;
+
+    display: grid;
+    /* This MUST match your total timeline width (e.g., 8000px) */
+    width: 8000px;
+
+    /* Ensure the grid tracks exactly match the headers */
+    grid-template-columns: var(--staff-col-w) repeat(var(--total-days), 1fr);
+
+    pointer-events: none;
+    z-index: 0; /* Keep it behind the rows */
 }
 
 /* The actual highlight cells */
@@ -913,8 +930,6 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   border-right: 1px solid transparent; 
   height: 100%;
   width: 100%;
-  /* This makes the highlight skip the staff column and land on the correct day */
-  grid-row: 1 / -1;
 }
 
 /* Specific class for weekends */
@@ -982,4 +997,116 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   position: relative;
   display: block;
   width: 100%;
+}
+
+.notif-btn {
+  position: relative;
+  background: #000000d9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  margin-right: 10px;
+}
+
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--danger);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+
+.notif-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.397);
+  border-left: 12px solid transparent;
+}
+
+
+/* 1. Overdue (Past) - Red */
+.notif-item.status-past {
+  border-left-color: #EF4444;
+}
+.notif-item.status-past .notif-status {
+  color: #EF4444;
+  font-weight: 600;
+}
+
+/* 2. Due Today - Orange/Amber */
+.notif-item.status-due {
+  border-left-color: #F59E0B;
+}
+.notif-item.status-due .notif-status {
+  color: #230e9d;
+  font-weight: 600;
+}
+
+/* 3. Due Soon - Blue/Indigo */
+.notif-item.status-soon {
+  border-left-color: #6366F1;
+}
+.notif-item.status-soon .notif-status {
+  color: #1f7a17;
+  font-weight: 500;
+}
+
+/* Basic layout for the internal text */
+.notif-info strong {
+  display: block;
+  color: rgb(21, 20, 20);
+  font-size: 14px;
+}
+
+.notif-info span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.notif-status {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Target only the content box inside the Notification Modal */
+#notifModal .modal-content {
+  background-color: #b09c68; /* Change this to your desired color */
+  border: 1px solid var(--border-soft); /* Optional: adds a subtle border */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3); /* Optional: adds depth */
+}
+
+/* Optional: If you want to change the title text color to match */
+#notifModal .modal-header h3 {
+  color: #ffffff;
+}
+
+.hidden { display: none; }
+
+/* Syncing animation: Spinning effect */
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.db-dot.syncing {
+  background: #F59E0B !important; /* Amber color while syncing */
+  box-shadow: 0 0 10px #F59E0B !important;
+  animation: sync-spin 1s linear infinite !important;
+  border-radius: 2px; /* Square it off slightly to make the spin visible */
+}
+
+.sync-text {
+  font-style: italic;
+  opacity: 0.7;
 }

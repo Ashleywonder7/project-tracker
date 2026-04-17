@@ -37,7 +37,7 @@
     </div>
   -->
     <!--BUTTONS-->
-    <button id="add-year-btn"> Add year ✚</button>
+    <button id="add-year-btn">Manage Years</button>
     
     <div class="sidebar-label"></div>
       <button id="staff-btn" onclick="openStaffModal()" style="font-size: 12px; margin-bottom: 10px;">Manage Staff</button>
@@ -70,6 +70,9 @@
           </select>
         </div>
         <button class="add-btn" onclick="openForm()">+ Add Project</button>
+        <button class="notif-btn" id="notif-trigger" onclick="openNotifModal()">🔔<span 
+          id="notifBadge" class="badge hidden">0</span>
+        </button>
       </div>
     </header>
 
@@ -163,7 +166,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Manage Staff</h3>
-      <button class="close-btn" onclick="closeStaffModal()">×</button>
+      <button class="close-btn" onclick="closeStaffModal()">✕</button>
     </div>
     
     <div id="staffListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px;">
@@ -184,7 +187,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Manage Holidays</h3>
-      <button class="close-btn" onclick="closeHolidayModal()">×</button>
+      <button class="close-btn" onclick="closeHolidayModal()">✕</button>
     </div>
     
     <div id="holidayListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid var(--border-soft);">
@@ -224,6 +227,23 @@
     </div>
   </div>
   </div>
+
+  <div id="notifModal" class="modal" onclick="handleNotifModalClick(event)">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Deadline Alerts</h3>
+        <button class="close-btn" onclick="closeNotifModal()">✕</button>
+      </div>
+    
+      <div id="notifListContainer" class="notif-list">
+        </div>
+
+      <div class="modal-actions">
+        <button class="btn-save" onclick="closeNotifModal()">Got it</button>
+      </div>
+    </div>
+  </div>
+  
   
   <script src="js/app.js"></script>
 </body>
