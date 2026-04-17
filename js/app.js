@@ -7,7 +7,7 @@
 // To enable Supabase, fill these in and set USE_SUPABASE = true
 const SUPABASE_URL  = 'https://pdzmpxwwdhkvfrpoikcw.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_IOVF4cy-Ngwswm3Wy0HC6g_WPlXedk9';
-const USE_SUPABASE  = false;
+const USE_SUPABASE  = true;
 
 
 
