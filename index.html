@@ -106,15 +106,10 @@
       </div>
 
       <label class="field-label">Project Name</label>
-      <input type="text" id="name" placeholder="e.g. Brand Identity">
+      <input type="text" id="name" placeholder="e.g. B-AYNI">
 
       <label class="field-label">Assign to Staff</label>
-      <select id="staff">
-        <option>Kwame</option>
-        <option>Ama</option>
-        <option>Kofi</option>
-        <option>Akosua</option>
-      </select>
+      <select id="staff"></select>
 
       <label class="field-label">Colour</label>
       <div class="color-row">
@@ -244,6 +239,18 @@
     </div>
   </div>
   
+  <div id="pinModal" class="modal">
+  <div class="modal-content" style="width: 300px; text-align: center;">
+    <h3>Admin Access</h3>
+    <p class="field-label">Enter PIN</p>
+    <input type="password" id="pinInput" placeholder="••••" 
+           style="text-align: center; font-size: 24px; letter-spacing: 8px;">
+    <div class="modal-actions" style="margin-top: 15px;">
+      <button class="btn-cancel" onclick="closePinModal()">Cancel</button>
+      <button class="btn-save" onclick="verifyPin()">Login</button>
+    </div>
+  </div>
+</div>
   
   <script src="js/app.js"></script>
 </body>

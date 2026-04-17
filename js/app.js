@@ -7,7 +7,8 @@
 // To enable Supabase, fill these in and set USE_SUPABASE = true
 const SUPABASE_URL  = 'https://pdzmpxwwdhkvfrpoikcw.supabase.co';
 const SUPABASE_KEY  = 'sb_publishable_IOVF4cy-Ngwswm3Wy0HC6g_WPlXedk9';
-const USE_SUPABASE  = true;
+const USE_SUPABASE  = false;
+
 
 
 // ─── STATE ─────────────────────────────────────
@@ -19,6 +20,8 @@ let activeFilter   = 'all';
 let STAFF = [];
 let holidays = []; // Format: { name: "Xmas", date: "2026-12-25", dayIdx: 359 }
 
+const urlParams = new URLSearchParams(window.location.search);
+const IS_ADMIN = urlParams.get('admin') === 'true';
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -38,7 +41,7 @@ function isLeapYear(year) {
 // ─── INIT ───────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
 
- // 1. Load the data first
+  // 1. Load the data first
   await loadProjects(); 
   
   // 2. Build the UI based on that data
@@ -46,7 +49,16 @@ window.addEventListener('DOMContentLoaded', async () => {
   populateStaffFilter();
   buildMonthsHeader();
   renderAll();
+
+  applyPermissions(); // Run permissions check
+
+  // Check for auto-popup after everything is loaded
+  checkAutoNotify();
+  
+  // Optional: Set an interval to check every minute while the app is open
+  setInterval(checkAutoNotify, 60000);
 });
+
 
 // ADD YEAR
 // Open the Modal
@@ -200,8 +212,13 @@ function renderAll() {
     const staffProjects = yearProjects.filter(p => p.staff === staffName);
     hasAny = hasAny || staffProjects.length > 0;
 
+    // Calculate how many lanes we need for this staff member
+    const laneCount = calculateLanes(staffProjects);
+    const rowHeight = Math.max(2, (laneCount * 35) + 20); // 35px per lane + padding
+
     const row = document.createElement('div');
     row.className = 'timeline-row';
+    row.style.height = `${rowHeight}px`;
 
     // Staff cell
     const staffCell = document.createElement('div');
@@ -227,7 +244,12 @@ function renderAll() {
 
     staffProjects.forEach(p => {
       const bar = buildProjectBar(p, totalDays);
-      if (bar) canvas.appendChild(bar);
+      if (bar) {
+        // Position the bar vertically based on its assigned lane
+        const verticalOffset = 20 + (p.lane * 35); 
+        bar.style.top = `${verticalOffset}px`;
+        canvas.appendChild(bar);
+      }
     });
 
     const today = new Date();
@@ -263,13 +285,26 @@ function buildProjectBar(p, totalDays) {
   const widthPct = ((endDay - startDay + 1) / totalDays) * 100;
 
   const bar = document.createElement('div');
-  bar.className = 'project-bar';
+  bar.className = `project-bar ${p.completed ? 'is-completed' : ''}`;
   bar.style.left = `${leftPct}%`;
   bar.style.width = `${widthPct}%`;
   bar.style.background = p.color || '#F59E0B';
 
   const textColor = getLuminance(p.color) > 0.4 ? 'rgba(0,0,0,0.8)' : '#fff';
   bar.style.color = textColor;
+
+  // Create the Toggle Button
+  const toggle = document.createElement('button');
+  toggle.className = 'complete-toggle';
+  toggle.innerHTML = p.completed ? '✓' : '○';
+  toggle.title = "Toggle Completion";
+  
+  toggle.addEventListener('click', async (e) => {
+    e.stopPropagation(); // Prevent opening the edit modal
+    p.completed = !p.completed;
+    await saveProjects();
+    renderAll();
+  });
 
   const nameEl = document.createElement('span');
   nameEl.className = 'bar-name';
@@ -280,6 +315,13 @@ function buildProjectBar(p, totalDays) {
   dateEl.className = 'bar-dates';
   dateEl.textContent = `${formatShort(start)} – ${formatShort(end)}`;
 
+  bar.addEventListener('click', e => {
+  if (!IS_ADMIN) return; // Prevent viewers from opening the edit modal
+  e.stopPropagation();
+  openEdit(p.id);
+  });
+
+  bar.appendChild(toggle);
   bar.appendChild(nameEl);
   //bar.appendChild(dateEl);
 
@@ -376,7 +418,7 @@ async function saveProject() {
     const p = findProject(editingId);
     if (p) Object.assign(p, { name, staff, start, end, color });
   } else {
-    const newP = { id: Date.now(), name, staff, start, end, color };
+    const newP = { id: Date.now(), name, staff, start, end, color, completed: false };
     if (!projects[currentYear]) projects[currentYear] = [];
     projects[currentYear].push(newP);
   }
@@ -1107,6 +1149,10 @@ function getProjectAlerts() {
   const activeProjects = projects[realYear] || [];
 
   activeProjects.forEach(p => {
+
+    // NEW: Skip this project if it is marked as completed
+    if (p.completed) return;
+
     const dueDate = new Date(p.end + 'T00:00:00');
     dueDate.setHours(0, 0, 0, 0);
     
@@ -1197,3 +1243,135 @@ function setSyncing(isSyncing) {
     label.textContent = label.dataset.originalText || "Supabase";
   }
 }
+
+function calculateLanes(staffProjects) {
+  // Sort projects by start date first
+  const sorted = [...staffProjects].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const lanes = [];
+
+  sorted.forEach(project => {
+    let assignedLane = 0;
+    
+    // Check each lane to see if this project fits
+    while (true) {
+      const collision = lanes[assignedLane]?.some(p => {
+        const pStart = new Date(p.start);
+        const pEnd = new Date(p.end);
+        const currStart = new Date(project.start);
+        const currEnd = new Date(project.end);
+        // Overlap logic: (StartA <= EndB) and (EndA >= StartB)
+        return currStart <= pEnd && currEnd >= pStart;
+      });
+
+      if (!collision) {
+        if (!lanes[assignedLane]) lanes[assignedLane] = [];
+        lanes[assignedLane].push(project);
+        project.lane = assignedLane; // Attach lane index to project object
+        break;
+      }
+      assignedLane++;
+    }
+  });
+  return lanes.length; // Total lanes needed
+}
+
+// --- AUTO-POPUP LOGIC ---
+
+function checkAutoNotify() {
+  const now = new Date();
+  const currentTime = now.getTime();
+  const todayDate = now.toDateString(); // e.g., "Fri Apr 17 2026"
+
+  const lastPopupTime = localStorage.getItem('last_notif_popup_time');
+  const lastPopupDate = localStorage.getItem('last_notif_popup_date');
+
+  let shouldShow = false;
+
+  // Condition 1: First time opening the app today
+  if (lastPopupDate !== todayDate) {
+    shouldShow = true;
+  } 
+  // Condition 2: Every 3 hours (3 hours = 10,800,000 milliseconds)
+  else if (lastPopupTime && (currentTime - lastPopupTime > 10800000)) {
+    shouldShow = true;
+  }
+
+  if (shouldShow) {
+    // Only show if there are actual alerts to see
+    const alerts = getProjectAlerts();
+    if (alerts.length > 0) {
+      openNotifModal();
+      // Record the time and date of this popup
+      localStorage.setItem('last_notif_popup_time', currentTime);
+      localStorage.setItem('last_notif_popup_date', todayDate);
+    }
+  }
+}
+
+function applyPermissions() {
+  if (!IS_ADMIN) {
+    // 1. Hide Management Buttons
+    const toHide = ['#add-year-btn', '#staff-btn', '#holiday-btn', '.add-btn'];
+    toHide.forEach(selector => {
+      const el = document.querySelector(selector);
+      if (el) el.style.display = 'none';
+    });
+
+    // 2. Hide "Remove" buttons in the Year/Staff/Holiday lists 
+    // (in case they find a way to open those modals)
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .btn-list-delete, .btn-delete, .modal-actions { display: none !important; }
+      .project-bar { cursor: default !important; pointer-events: none; }
+    `;
+    document.head.appendChild(style);
+
+    // 3. Mark the body
+    document.body.classList.add('viewer-mode');
+  }
+}
+
+// --- SECURE PIN MODAL LOGIC ---
+
+function openPinModal() {
+  document.getElementById('pinModal').classList.add('open');
+  const input = document.getElementById('pinInput');
+  input.value = '';
+  input.focus();
+}
+
+function closePinModal() {
+  document.getElementById('pinModal').classList.remove('open');
+}
+
+function verifyPin() {
+  const pin = document.getElementById('pinInput').value;
+  const url = new URL(window.location.href);
+
+  if (pin === '$123') { // Replace with your PIN
+    url.searchParams.set('admin', 'true');
+    window.location.href = url.toString();
+  } else {
+    alert("Incorrect PIN.");
+    document.getElementById('pinInput').value = '';
+  }
+}
+
+// Shortcut: Ctrl + Shift + A
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+    e.preventDefault();
+    if (IS_ADMIN) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('admin');
+      window.location.href = url.toString();
+    } else {
+      openPinModal();
+    }
+  }
+});
+
+// Allow pressing "Enter" inside the PIN modal
+document.getElementById('pinInput')?.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') verifyPin();
+});

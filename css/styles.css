@@ -19,7 +19,8 @@
   --radius-sm:    6px;
   --sidebar-w:    200px;
   --staff-col-w:  140px;
-  --row-h:        52px;
+  --row-h:        auto;
+  --min-row-h:    60px;
   --header-h:     60px;
 }
 
@@ -425,7 +426,8 @@ button {
 
 .timeline-row {
   display: flex;
-  height: var(--row-h);
+  height: auto; /* Allow growth */
+  min-height: var(--min-row-h);
   min-width: 5000px;
   border-bottom: 1px solid var(--border-soft);
   position: relative;
@@ -477,6 +479,10 @@ button {
   display: grid;
   position: relative;
   overflow: hidden;
+  min-height: 2px;
+  /* top-padding 15px pushes the first project down */
+  /* bottom-padding 5px reduces the extra gap at the end */
+  padding: 20px 0 2px 0;  
   background-color: transparent; /* Let the highlight layer show through */
   /* Keep the line definition, but we will control the repeat size via JS */
   background-image: linear-gradient(
@@ -512,7 +518,7 @@ button {
 /* ─── PROJECT BAR ─────────────────────────── */
 .project-bar {
   position: absolute;
-  height: 32px;
+  height: 30px;
   top: 50%;
   transform: translateY(-50%);
   border-radius: 4px;
@@ -1109,4 +1115,70 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 .sync-text {
   font-style: italic;
   opacity: 0.7;
+}
+
+/* Update or add this to your styles.css */
+#notifListContainer {
+  /* Limit the height to keep the modal from growing off-screen */
+  max-height: 400px; 
+  
+  /* Enable vertical scrolling only when content exceeds max-height */
+  overflow-y: auto; 
+  
+  /* Optional: Add a small gap to prevent text from touching the scrollbar */
+  padding-right: 8px; 
+  
+  /* Ensure a clean separation from the modal footer */
+  margin-bottom: 10px;
+}
+
+/* Optional: Style the scrollbar for the notification list to match your theme */
+#notifListContainer::-webkit-scrollbar {
+  width: 5px;
+}
+
+#notifListContainer::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+
+/* If in viewer mode, make bars look non-interactive */
+body.viewer-mode .project-bar {
+    cursor: default;
+}
+
+body.viewer-mode .project-bar:hover {
+    transform: none;
+    filter: none;
+}
+
+.project-bar.is-completed {
+    opacity: 0.8;
+    filter: grayscale(0.5);
+    /*text-decoration: line-through;*/
+}
+
+.complete-toggle {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    width: 20px !important; /* Override the 90% button rule */
+    height: 20px;
+    border-radius: 50%;
+    margin-right: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
+.complete-toggle:hover {
+    background: rgba(255,255,255,0.4);
+}
+
+/* Hide the toggle button for Viewers */
+body.viewer-mode .complete-toggle {
+    display: none !important;
 }
