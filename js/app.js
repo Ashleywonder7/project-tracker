@@ -937,9 +937,16 @@ function renderStaffList() {
   STAFF.forEach((member, index) => {
     const item = document.createElement('div');
     item.style = "display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-soft); color: white; font-size: 14px;";
+    
     item.innerHTML = `
-      <span>${member}</span>
-      <button onclick="removeStaff(${index})" style="width: auto; background: #f9f9f9; color: var(--danger); border: none; cursor: pointer; font-size: 12px;">Remove</button>
+      <span 
+        contenteditable="${IS_ADMIN}" 
+        class="editable-staff-name" 
+        onblur="renameStaffInline(${index}, this)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"
+      >${member}</span>
+      
+      <button onclick="removeStaff(${index})" class="btn-list-delete" style="width: auto !important; padding: 4px 8px !important; margin: 0 !important;">Remove</button>
     `;
     container.appendChild(item);
   });
@@ -1375,3 +1382,32 @@ window.addEventListener('keydown', (e) => {
 document.getElementById('pinInput')?.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') verifyPin();
 });
+
+async function renameStaffInline(index, element) {
+  const newName = element.innerText.trim();
+  const oldName = STAFF[index];
+
+  if (!newName || newName === oldName) {
+    element.innerText = oldName; // Reset if empty
+    return;
+  }
+
+  // 1. Update arrays and projects
+  STAFF[index] = newName;
+  for (const year in projects) {
+    projects[year].forEach(p => { if (p.staff === oldName) p.staff = newName; });
+  }
+
+  // 2. Persist
+  localStorage.setItem('retain_staff', JSON.stringify(STAFF));
+  if (USE_SUPABASE) {
+    await supabase.from('staff').update({ name: newName }).eq('name', oldName);
+    await saveToSupabase(); 
+  } else {
+    saveToLocal();
+  }
+
+  // 3. Refresh UI quietly
+  populateStaffFilter();
+  renderAll();
+}

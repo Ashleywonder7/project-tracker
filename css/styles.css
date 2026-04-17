@@ -1182,3 +1182,30 @@ body.viewer-mode .project-bar:hover {
 body.viewer-mode .complete-toggle {
     display: none !important;
 }
+
+.editable-staff-name {
+    flex: 1;
+    color: white;
+    padding: 4px 0;
+    margin-right: 15px;
+    border-bottom: 1px transparent;
+    transition: border-bottom 0.2s;
+}
+
+/* Only show the cursor and underline for Admins */
+body:not(.viewer-mode) .editable-staff-name:hover {
+    cursor: text;
+    border-bottom: 1px dashed var(--accent);
+}
+
+.editable-staff-name:focus {
+    outline: none;
+    color: var(--accent);
+}
+
+/* Ensure the Remove button stays small and aligned to the right */
+.staff-list-item .btn-list-delete {
+    width: 70px !important;
+    min-width: 70px !important;
+    font-size: 11px !important;
+}
