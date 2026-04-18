@@ -528,7 +528,7 @@ button {
   font-size: 0.7rem;
   cursor: pointer;
   min-width: 4px;
-  transition: filter 0.15s, transform 0.1s;
+  transition: filter 0.15s, transform 0.2s;
   overflow: hidden;
   white-space: nowrap;
   z-index: 2;
@@ -536,8 +536,9 @@ button {
 
 .project-bar:hover {
   filter: brightness(1.1);
-  transform: translateY(-50%) translateY(1px);
+  transform: translateY(-50%) translateY(-1px) !important; 
   z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
 .bar-name {
@@ -1144,7 +1145,8 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* If in viewer mode, make bars look non-interactive */
 body.viewer-mode .project-bar {
-    cursor: default;
+    cursor: pointer !important; /* Allow clicking */
+    pointer-events: auto !important; /* Re-enable events */
 }
 
 body.viewer-mode .project-bar:hover {
@@ -1282,3 +1284,41 @@ body:not(.viewer-mode) .editable-staff-name:hover {
     color: #ffffff; 
 }
 
+/* Optional: Style disabled inputs to look more "readable" and less "greyed out" */
+.modal-content input:disabled, 
+.modal-content select:disabled {
+    opacity: 0.8;
+    cursor: default;
+    background: var(--surface); /* Keep it dark but clearly uneditable */
+    color: var(--text-faint);
+}
+
+/* Override the 'hide actions' rule specifically for the PIN modal */
+#pinModal .modal-actions {
+    display: flex !important;
+}
+
+/* Ensure the cancel button looks distinct from the save button */
+#pinModal .btn-cancel {
+    background: #333d55 !important; /* Darker to contrast the save button */
+    color: var(--text-faint);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: block !important;
+}
+
+.subtitle {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Space between the text and the dot */
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  margin-top: 4px;
+}
+
+.count-divider {
+  opacity: 0.4;
+  color: var(--text-faint);
+  font-weight: bold;
+}

@@ -201,12 +201,24 @@ function renderAll() {
   existingRows.forEach(row => row.remove());
 
   const yearProjects = (projects[currentYear] || []);
+
+  // Use STAFF.length for the total count, or 1 if a specific staff is filtered
+  const displayStaffCount = (activeFilter === 'all' ? STAFF.length : 1);
+  
   const filteredStaff = activeFilter === 'all'
     ? STAFF
     : STAFF.filter(s => s === activeFilter);
 
   const totalDays = totalDaysInYear(currentYear);
   let hasAny = false;
+
+  // Update Project Count
+  document.getElementById('projectCount').textContent = 
+    `${yearProjects.length} project${yearProjects.length !== 1 ? 's' : ''}`;
+    
+  // Update Staff Count
+  document.getElementById('staffCount').textContent = 
+    `${displayStaffCount} staff member${displayStaffCount !== 1 ? 's' : ''}`;
 
   filteredStaff.forEach(staffName => {
     const staffProjects = yearProjects.filter(p => p.staff === staffName);
@@ -303,7 +315,6 @@ function buildProjectBar(p, totalDays) {
   dateEl.textContent = `${formatShort(start)} – ${formatShort(end)}`;
 
   bar.addEventListener('click', e => {
-  if (!IS_ADMIN) return; // Prevent viewers from opening the edit modal
   e.stopPropagation();
   openEdit(p.id);
   });
@@ -359,6 +370,20 @@ function openEdit(id) {
 
   modalCompletedState = p.completed || false;
   updateModalCompleteUI();
+
+  // PERMISSIONS CHECK: Disable inputs if not admin
+  const inputs = ['name', 'staff', 'startDate', 'endDate'];
+  inputs.forEach(id => {
+    document.getElementById(id).disabled = !IS_ADMIN;
+  });
+
+
+  // Hide the Save and Delete buttons for non-admins
+  document.querySelector('.btn-save').style.display = IS_ADMIN ? 'block' : 'none';
+  document.getElementById('deleteRow').style.display = IS_ADMIN ? 'block' : 'none';
+  
+  // Disable the "Mark as Completed" toggle
+  document.getElementById('modalCompleteBtn').style.pointerEvents = IS_ADMIN ? 'auto' : 'none';
 
   document.getElementById('projectForm').classList.add('open');
 
@@ -1382,6 +1407,7 @@ function openPinModal() {
 
 function closePinModal() {
   document.getElementById('pinModal').classList.remove('open');
+  document.getElementById('pinInput').value = '';
 }
 
 function verifyPin() {
