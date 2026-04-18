@@ -101,8 +101,15 @@
   <div id="projectForm" class="modal" onclick="handleModalClick(event)">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="formTitle">Add Project</h3>
+        <h3 id="formTitle">Project Details</h3>
         <button class="close-btn" onclick="closeForm()">✕</button>
+      </div>
+
+      <div class="status-toggle-container">
+        <button id="modalCompleteBtn" onclick="toggleModalComplete()" class="modal-circle-toggle">
+          <span class="circle-icon"></span>
+          <span class="status-text">Mark as Completed</span>
+        </button>
       </div>
 
       <label class="field-label">Project Name</label>

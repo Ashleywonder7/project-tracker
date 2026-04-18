@@ -293,19 +293,6 @@ function buildProjectBar(p, totalDays) {
   const textColor = getLuminance(p.color) > 0.4 ? 'rgba(0,0,0,0.8)' : '#fff';
   bar.style.color = textColor;
 
-  // Create the Toggle Button
-  const toggle = document.createElement('button');
-  toggle.className = 'complete-toggle';
-  toggle.innerHTML = p.completed ? '✓' : '○';
-  toggle.title = "Toggle Completion";
-  
-  toggle.addEventListener('click', async (e) => {
-    e.stopPropagation(); // Prevent opening the edit modal
-    p.completed = !p.completed;
-    await saveProjects();
-    renderAll();
-  });
-
   const nameEl = document.createElement('span');
   nameEl.className = 'bar-name';
   nameEl.style.color = textColor;
@@ -321,7 +308,6 @@ function buildProjectBar(p, totalDays) {
   openEdit(p.id);
   });
 
-  bar.appendChild(toggle);
   bar.appendChild(nameEl);
   //bar.appendChild(dateEl);
 
@@ -363,14 +349,23 @@ function openEdit(id) {
   const p = findProject(id);
   if (!p) return;
   editingId = id;
-  document.getElementById('formTitle').textContent = 'Edit Project';
+  document.getElementById('formTitle').textContent = 'Project Details';
   document.getElementById('name').value      = p.name;
   document.getElementById('staff').value     = p.staff;
   document.getElementById('startDate').value = p.start;
   document.getElementById('endDate').value   = p.end;
   setSelectedColor(p.color || '#F59E0B');
   document.getElementById('deleteRow').style.display = 'block';
+
+  modalCompletedState = p.completed || false;
+  updateModalCompleteUI();
+
   document.getElementById('projectForm').classList.add('open');
+
+  // Set the checkbox state
+  document.getElementById('projectCompleted').checked = p.completed || false;
+
+  document.getElementById('projectModal').classList.add('open');
 }
 
 function closeForm() {
@@ -396,7 +391,8 @@ async function saveProject() {
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
   const color = selectedColor;
-
+  const completed = modalCompletedState; // Use the toggle value
+  
   if (USE_SUPABASE && supabase) {
     setSyncing(true); // Start Indicator
     await saveToSupabase();
@@ -409,23 +405,41 @@ async function saveProject() {
     alert('Please fill in all fields.');
     return;
   }
+
   if (new Date(start) > new Date(end)) {
     alert('Start date must be before end date.');
     return;
   }
 
+  let projectToSync;
+
+  // Update Local State
   if (editingId !== null) {
-    const p = findProject(editingId);
-    if (p) Object.assign(p, { name, staff, start, end, color });
+    projectToSync = findProject(editingId);
+    if (projectToSync) Object.assign(projectToSync, { name, staff, start, end, color, completed });
   } else {
-    const newP = { id: Date.now(), name, staff, start, end, color, completed: false };
+    projectToSync = { id: Date.now(), name, staff, start, end, color, completed };
     if (!projects[currentYear]) projects[currentYear] = [];
-    projects[currentYear].push(newP);
+    projects[currentYear].push(projectToSync);
   }
 
-  await saveProjects();
-  closeForm();
+  // POINT 4: Optimistic Update (Immediate UI response)
+  closeForm(); 
   renderAll();
+  setSyncing(true); // Visual feedback that work is happening in background
+
+  // POINT 3: Targeted Background Sync
+  saveProjects(projectToSync)
+    .then(() => {
+      console.log("Cloud sync successful");
+    })
+    .catch(err => {
+      console.error("Sync failed:", err);
+      // Optional: Show a "Retry Sync" toast notification here
+    })
+    .finally(() => {
+      setSyncing(false);
+    });
 }
 
 async function deleteProject() {
@@ -537,6 +551,7 @@ async function loadFromSupabase() {
       start: row.start_date,
       end:   row.end_date,
       color: row.color,
+      completed: row.completed
     });
   });
   return grouped;
@@ -555,6 +570,7 @@ async function saveToSupabase() {
         start_date: p.start,
         end_date:   p.end,
         color:      p.color,
+        completed:  p.completed
       });
     });
   });
@@ -617,9 +633,26 @@ function loadStaffLocal() {
   STAFF = raw ? JSON.parse(raw) : ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene'];
 }
 
-async function saveProjects() {
+async function saveProjects(singleProject = null) {
   if (USE_SUPABASE && supabase) {
-    await saveToSupabase();
+    if (singleProject) {
+      // Only update the specific row changed
+      const row = {
+        id: singleProject.id,
+        year: currentYear,
+        name: singleProject.name,
+        staff: singleProject.staff,
+        start_date: singleProject.start,
+        end_date: singleProject.end,
+        color: singleProject.color,
+        completed: singleProject.completed // Ensure this column exists in Supabase
+      };
+      const { error } = await supabase.from('projects').upsert(row);
+      if (error) throw error;
+    } else {
+      // Fallback for bulk saves if needed
+      await saveToSupabase();
+    }
   } else {
     saveToLocal();
   }
@@ -1410,4 +1443,24 @@ async function renameStaffInline(index, element) {
   // 3. Refresh UI quietly
   populateStaffFilter();
   renderAll();
+}
+
+let modalCompletedState = false; // State tracker for the modal
+
+function toggleModalComplete() {
+    modalCompletedState = !modalCompletedState;
+    updateModalCompleteUI();
+}
+
+function updateModalCompleteUI() {
+    const btn = document.getElementById('modalCompleteBtn');
+    const text = btn.querySelector('.status-text');
+    
+    if (modalCompletedState) {
+        btn.classList.add('is-completed');
+        text.textContent = 'Completed';
+    } else {
+        btn.classList.remove('is-completed');
+        text.textContent = 'Mark as Completed';
+    }
 }

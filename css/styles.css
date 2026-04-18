@@ -627,12 +627,12 @@ button {
   background: rgba(130, 148, 221, 0.726);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 20px;
-  width: 380px;
+  padding: 20px ;
+  width: 360px;
   box-shadow: 0 24px 60px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   animation: slideUp 0.2s ease;
   transform: scale(0.9);
   transition: transform 180ms ease;
@@ -1209,3 +1209,76 @@ body:not(.viewer-mode) .editable-staff-name:hover {
     min-width: 70px !important;
     font-size: 11px !important;
 }
+
+.status-toggle-container {
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.modal-circle-toggle {
+    background: transparent !important;
+    border: none !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    padding: 0 !important;
+    width: auto !important;
+    color: var(--text-dim);
+    transition: color 0.2s;
+}
+
+/* The Circle */
+.circle-icon {
+    width: 24px;
+    height: 24px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+/* The Checkmark (Hidden by default) */
+.circle-icon::after {
+    content: '✓';
+    font-size: 14px;
+    color: white;
+    display: none;
+}
+
+/* Completed State Styling */
+.modal-circle-toggle.is-completed .circle-icon {
+    background: #10B981;
+    border-color: #10B981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.modal-circle-toggle.is-completed .circle-icon::after {
+    display: block;
+}
+
+.modal-circle-toggle.is-completed .status-text {
+    color: #81efca;
+    font-weight: bold;
+}
+
+.modal-circle-toggle:hover .circle-icon {
+    border-color: var(--accent);
+}
+
+/* This targets the text BEFORE the toggle is clicked */
+.modal-circle-toggle .status-text {
+    color: #182b46; /* This uses your --text-faint variable color */
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+/* Optional: Change the color when you hover over it */
+.modal-circle-toggle:hover .status-text {
+    color: #ffffff; 
+}
+
