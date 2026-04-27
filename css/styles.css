@@ -411,6 +411,7 @@ button {
 .timeline-row, 
 .row-canvas {
     background: transparent; /* Ensure nothing hides the grid stripes */
+    overflow: visible !important;
 }
 
 /* Ensure the Today highlight is bold enough to be seen through grid lines */
@@ -478,7 +479,7 @@ button {
   flex: 1;
   display: grid;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   min-height: 2px;
   /* top-padding 15px pushes the first project down */
   /* bottom-padding 5px reduces the extra gap at the end */
@@ -529,7 +530,7 @@ button {
   cursor: pointer;
   min-width: 4px;
   transition: filter 0.15s, transform 0.2s;
-  overflow: hidden;
+  overflow: visible !important;
   white-space: nowrap;
   z-index: 2;
 }
@@ -537,7 +538,7 @@ button {
 .project-bar:hover {
   filter: brightness(1.1);
   transform: translateY(-50%) translateY(-1px) !important; 
-  z-index: 10;
+  z-index: 999 !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
@@ -637,6 +638,9 @@ button {
   animation: slideUp 0.2s ease;
   transform: scale(0.9);
   transition: transform 180ms ease;
+  max-height: 90vh; /* Modal will never exceed 90% of screen height */
+  overflow-y: auto; /* Adds scrollbar to the entire modal if needed */
+
 }
 
 .modal.open .modal-content {
@@ -1157,7 +1161,7 @@ body.viewer-mode .project-bar:hover {
 .project-bar.is-completed {
     opacity: 0.8;
     filter: grayscale(0.5);
-    /*text-decoration: line-through;*/
+    text-decoration: line-through;
 }
 
 .complete-toggle {
@@ -1321,4 +1325,101 @@ body:not(.viewer-mode) .editable-staff-name:hover {
   opacity: 0.4;
   color: var(--text-faint);
   font-weight: bold;
+}
+
+/* Scrollable textarea container */
+.comments-wrapper {
+  margin-bottom: 15px;
+}
+
+#projectComments {
+  width: 100%;
+  height: 100px;
+  background: var(--bg-soft); /* Use your existing soft background variable */
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  color: white;
+  padding: 10px;
+  min-height: 80px;
+  max-height: 200px; /* Limits how far the box itself grows */
+  font-family: 'DM Sans', sans-serif;
+  resize: vertical; /* Allows the user to manually pull it down if they want */
+  overflow-y: auto; /* Enables scroll */
+}
+
+
+.project-bar::after {
+  content: attr(data-comments);
+  position: absolute;
+  bottom: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b; /* Dark slate background */
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  width: max-content;
+  max-width: 250px;
+  white-space: normal;
+  word-wrap: break-word;
+  display: none;
+  z-index: 10000;
+  min-height: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  border: 1px solid var(--border-soft);
+  pointer-events: none;
+}
+
+.project-bar:hover::after {
+  /* Only show if there are actually comments */
+  display: block;
+  pointer-events: none;
+}
+
+/* Hide tooltip if data-comments is empty */
+.project-bar[data-comments=""]::after,
+.project-bar[data-comments="undefined"]::after {
+  display: none !important;
+}
+
+/* If the bar is near the top of the container, show tooltip below instead */
+.timeline-row:first-child .project-bar::after {
+  bottom: auto;
+  top: 130%; /* Position it clearly below the bar */
+  z-index: 10001; /* Ensure it stays above everything */
+}
+
+/* Force the row being hovered to the front */
+.timeline-row:hover {
+  z-index: 100; /* Higher than other rows */
+}
+
+body.viewer-mode .color-swatch,
+body.viewer-mode .modal-circle-toggle {
+    cursor: not-allowed !important;
+}
+
+/* Ensure the custom color picker panel doesn't accidentally open */
+body.viewer-mode .picker-panel {
+    display: none !important;
+}
+
+#projectComments::placeholder {
+  color: rgba(255, 255, 255, 0.4); /* Change this hex or rgba to your preferred color */
+  opacity: 1; /* Ensures the color isn't washed out by browser defaults */
+}
+
+/* For cross-browser support, you can also add these: */
+#projectComments::-webkit-input-placeholder { color: rgba(255, 255, 255, 0.4); }
+#projectComments::-moz-placeholder { color: rgba(255, 255, 255, 0.4); }
+
+/* 3. Style the scrollbar to match your dark theme */
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
 }

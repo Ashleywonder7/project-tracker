@@ -301,6 +301,7 @@ function buildProjectBar(p, totalDays) {
   bar.style.left = `${leftPct}%`;
   bar.style.width = `${widthPct}%`;
   bar.style.background = p.color || '#F59E0B';
+  bar.setAttribute('data-comments', p.comments || '');
 
   const textColor = getLuminance(p.color) > 0.4 ? 'rgba(0,0,0,0.8)' : '#fff';
   bar.style.color = textColor;
@@ -310,19 +311,20 @@ function buildProjectBar(p, totalDays) {
   nameEl.style.color = textColor;
   nameEl.textContent = p.name;
 
+  if (p.completed) {
+    nameEl.style.textDecoration = 'line-through';
+    nameEl.style.opacity = '0.7'; // Optional: makes it look slightly faded
+  }
+
   const dateEl = document.createElement('span');
   dateEl.className = 'bar-dates';
   dateEl.textContent = `${formatShort(start)} – ${formatShort(end)}`;
-
-  bar.addEventListener('click', e => {
-  e.stopPropagation();
-  openEdit(p.id);
-  });
 
   bar.appendChild(nameEl);
   //bar.appendChild(dateEl);
 
   bar.addEventListener('click', e => {
+    e.preventDefault();
     e.stopPropagation();
     openEdit(p.id);
   });
@@ -354,6 +356,7 @@ function openForm() {
   setSelectedColor('#F59E0B');
   document.getElementById('deleteRow').style.display = 'none';
   document.getElementById('projectForm').classList.add('open');
+  document.getElementById('projectComments').value = '';
 }
 
 function openEdit(id) {
@@ -365,32 +368,65 @@ function openEdit(id) {
   document.getElementById('staff').value     = p.staff;
   document.getElementById('startDate').value = p.start;
   document.getElementById('endDate').value   = p.end;
-  setSelectedColor(p.color || '#F59E0B');
-  document.getElementById('deleteRow').style.display = 'block';
 
+ // Set the comments value
+  document.getElementById('projectComments').value = p.comments || '';
+
+  // Set Color and Status Toggle
+  setSelectedColor(p.color || '#F59E0B');
   modalCompletedState = p.completed || false;
   updateModalCompleteUI();
 
-  // PERMISSIONS CHECK: Disable inputs if not admin
-  const inputs = ['name', 'staff', 'startDate', 'endDate'];
-  inputs.forEach(id => {
-    document.getElementById(id).disabled = !IS_ADMIN;
+// UPDATED Permissions Check
+  const adminOnlyInputs = ['name', 'staff', 'startDate', 'endDate']; 
+  adminOnlyInputs.forEach(inputId => {
+    const el = document.getElementById(inputId);
+    if (el) el.disabled = !IS_ADMIN;
   });
 
+  // 3. LOCK COLOR & COMPLETION TOGGLES
+  const colorSwatches = document.querySelectorAll('.color-swatch');
+  const completeBtn = document.getElementById('modalCompleteBtn');
+  const customSwatch = document.getElementById('customSwatch');
 
-  // Hide the Save and Delete buttons for non-admins
-  document.querySelector('.btn-save').style.display = IS_ADMIN ? 'block' : 'none';
+  if (!IS_ADMIN) {
+    // Disable Color Swatches
+    colorSwatches.forEach(s => {
+      s.style.pointerEvents = 'none';
+      s.style.opacity = '0.6';
+    });
+    // Disable Custom Color Trigger
+    if (customSwatch) customSwatch.style.pointerEvents = 'none';
+    
+    // Disable Completion Toggle
+    if (completeBtn) {
+      completeBtn.style.pointerEvents = 'none';
+      completeBtn.style.opacity = '0.7';
+    }
+  } else {
+    // Re-enable for Admins (in case it was locked by previous view)
+    colorSwatches.forEach(s => {
+      s.style.pointerEvents = 'auto';
+      s.style.opacity = '1';
+    });
+    if (customSwatch) customSwatch.style.pointerEvents = 'auto';
+    if (completeBtn) {
+      completeBtn.style.pointerEvents = 'auto';
+      completeBtn.style.opacity = '1';
+    }
+  }
+
+  // Keep the comments textarea enabled for everyone
+  document.getElementById('projectComments').disabled = false;
+
+  // 3. Ensure the Save button is visible for everyone now
+  // Since non-admins can now "Save" comment changes
+  document.querySelector('.btn-save').style.display = 'block';
+
+  // 4. Keep administrative buttons (Delete) hidden for non-admins
   document.getElementById('deleteRow').style.display = IS_ADMIN ? 'block' : 'none';
   
-  // Disable the "Mark as Completed" toggle
-  document.getElementById('modalCompleteBtn').style.pointerEvents = IS_ADMIN ? 'auto' : 'none';
-
   document.getElementById('projectForm').classList.add('open');
-
-  // Set the checkbox state
-  document.getElementById('projectCompleted').checked = p.completed || false;
-
-  document.getElementById('projectModal').classList.add('open');
 }
 
 function closeForm() {
@@ -411,60 +447,84 @@ function handleModalClick(e) {
 }
 
 async function saveProject() {
+  // 1. Capture Form Inputs
   const name  = document.getElementById('name').value.trim();
   const staff = document.getElementById('staff').value;
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
   const color = selectedColor;
-  const completed = modalCompletedState; // Use the toggle value
-  
-  if (USE_SUPABASE && supabase) {
-    setSyncing(true); // Start Indicator
-    await saveToSupabase();
-    setSyncing(false); // Stop Indicator
-  } else {
-    saveToLocal();
-  }
+  const completed = modalCompletedState; 
+  const comments = document.getElementById('projectComments').value.trim();
 
-  if (!name || !start || !end) {
+  // 2. Basic Validation (Only strictly enforced for Admins creating/editing core details)
+  if (IS_ADMIN && (!name || !start || !end)) {
     alert('Please fill in all fields.');
     return;
   }
 
-  if (new Date(start) > new Date(end)) {
+  if (IS_ADMIN && (new Date(start) > new Date(end))) {
     alert('Start date must be before end date.');
     return;
   }
 
   let projectToSync;
 
-  // Update Local State
+  // 3. Update Local State
   if (editingId !== null) {
+    // Update existing project
     projectToSync = findProject(editingId);
-    if (projectToSync) Object.assign(projectToSync, { name, staff, start, end, color, completed });
+    if (projectToSync) {
+      if (IS_ADMIN) {
+        // Admins can update everything
+        Object.assign(projectToSync, { 
+          name, 
+          staff, 
+          start, 
+          end, 
+          color, 
+          completed, 
+          comments 
+        });
+      } else {
+        // Non-admins ONLY update the comments field
+        projectToSync.comments = comments;
+      }
+    }
   } else {
-    projectToSync = { id: Date.now(), name, staff, start, end, color, completed };
+    // Only admins can create new projects
+    if (!IS_ADMIN) {
+      alert("You do not have permission to create projects.");
+      return;
+    }
+
+    projectToSync = { 
+      id: Date.now(), 
+      name, 
+      staff, 
+      start, 
+      end, 
+      color, 
+      completed, 
+      comments 
+    };
     if (!projects[currentYear]) projects[currentYear] = [];
     projects[currentYear].push(projectToSync);
   }
 
-  // POINT 4: Optimistic Update (Immediate UI response)
+  // 4. Optimistic UI Update
   closeForm(); 
   renderAll();
-  setSyncing(true); // Visual feedback that work is happening in background
 
-  // POINT 3: Targeted Background Sync
-  saveProjects(projectToSync)
-    .then(() => {
-      console.log("Cloud sync successful");
-    })
-    .catch(err => {
-      console.error("Sync failed:", err);
-      // Optional: Show a "Retry Sync" toast notification here
-    })
-    .finally(() => {
-      setSyncing(false);
-    });
+  // 5. Background Synchronization
+  setSyncing(true);
+  try {
+    await saveProjects(projectToSync);
+    console.log("Sync successful");
+  } catch (err) {
+    console.error("Sync failed:", err);
+  } finally {
+    setSyncing(false);
+  }
 }
 
 async function deleteProject() {
@@ -576,7 +636,8 @@ async function loadFromSupabase() {
       start: row.start_date,
       end:   row.end_date,
       color: row.color,
-      completed: row.completed
+      completed: row.completed,
+      comments: row.comments
     });
   });
   return grouped;
@@ -595,7 +656,8 @@ async function saveToSupabase() {
         start_date: p.start,
         end_date:   p.end,
         color:      p.color,
-        completed:  p.completed
+        completed:  p.completed,
+        comments:   p.comments
       });
     });
   });
@@ -670,7 +732,8 @@ async function saveProjects(singleProject = null) {
         start_date: singleProject.start,
         end_date: singleProject.end,
         color: singleProject.color,
-        completed: singleProject.completed // Ensure this column exists in Supabase
+        completed: singleProject.completed,
+        comments: singleProject.comments
       };
       const { error } = await supabase.from('projects').upsert(row);
       if (error) throw error;
@@ -1386,8 +1449,20 @@ function applyPermissions() {
     // (in case they find a way to open those modals)
     const style = document.createElement('style');
     style.innerHTML = `
-      .btn-list-delete, .btn-delete, .modal-actions { display: none !important; }
-      .project-bar { cursor: default !important; pointer-events: none; }
+      .btn-list-delete, 
+      .btn-delete, 
+      #staffModal .modal-actions,   /* Hide staff save */
+      #holidayModal .modal-actions, /* Hide holiday save */
+      #yearModal .modal-actions     /* Hide year save */
+      { display: none !important; }
+      
+      /* Explicitly ensure project save is visible for comment editing */
+      #projectForm .modal-actions { display: flex !important; }
+
+      /* Ensure notification modal actions remain visible */
+      #notifModal .modal-actions { display: flex !important; }
+      
+      .project-bar { cursor: default !important; }
     `;
     document.head.appendChild(style);
 
