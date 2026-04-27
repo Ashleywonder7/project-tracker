@@ -329,6 +329,22 @@ function buildProjectBar(p, totalDays) {
     openEdit(p.id);
   });
 
+  // RIGHT-CLICK EVENT
+  bar.addEventListener('contextmenu', e => {
+    // 1. Block the standard browser menu
+    e.preventDefault(); 
+    e.stopPropagation();
+
+    // 2. Permission Check
+    if (!IS_ADMIN) {
+        console.warn("Viewers cannot duplicate projects.");
+        return;
+    }
+    
+
+    duplicateProject(p.id);
+  });
+
   return bar;
 }
 
@@ -529,8 +545,30 @@ async function saveProject() {
 
 async function deleteProject() {
   if (editingId === null) return;
-  projects[currentYear] = (projects[currentYear] || []).filter(p => p.id !== editingId);
-  await saveProjects();
+
+  const idToDelete = editingId; // Capture the ID before closing the form
+
+  // 1. Remove from local state
+  projects[currentYear] = (projects[currentYear] || []).filter(p => p.id !== idToDelete);
+
+  // 2. Persist the deletion
+  setSyncing(true);
+  try {
+    if (USE_SUPABASE && supabase) {
+      // Explicitly delete from Supabase
+      const { error } = await supabase.from('projects').delete().eq('id', idToDelete);
+      if (error) throw error;
+    } else {
+      saveToLocal();
+    }
+    console.log("Deletion successful");
+  } catch (err) {
+    console.error("Deletion failed:", err);
+    alert("Failed to delete from server. Please try again.");
+  } finally {
+    setSyncing(false);
+  }
+
   closeForm();
   renderAll();
 }
@@ -644,13 +682,12 @@ async function loadFromSupabase() {
 }
 
 async function saveToSupabase() {
-  // Upsert all projects across all years
-  const rows = [];
-  [2026, 2027, 2028].forEach(year => {
+// Use Object.keys to get ALL years dynamically instead of hardcoded [2026, 2027, 2028]
+  Object.keys(projects).forEach(year => {
     (projects[year] || []).forEach(p => {
       rows.push({
         id:         p.id,
-        year,
+        year:       parseInt(year),
         name:       p.name,
         staff:      p.staff,
         start_date: p.start,
@@ -661,6 +698,7 @@ async function saveToSupabase() {
       });
     });
   });
+
   const { error } = await supabase.from('projects').upsert(rows);
   if (error) console.error('Supabase save error:', error);
 }
@@ -917,7 +955,10 @@ function highlightDay(canvas, dayIndex, color = 'rgba(227, 216, 56, 0.68)') {
 
 function buildGridHighlights(totalDays) {
   const layer = document.getElementById('gridHighlightLayer');
-  if (!layer) return;
+  if (layer) {
+    layer.style.zIndex = "1"; // Keep it low
+    layer.style.pointerEvents = "none"; // Ensure it doesn't block clicks
+  }
 
   // 1. Sync the CSS variable for the grid columns
   document.documentElement.style.setProperty('--total-days', totalDays);
@@ -1057,15 +1098,22 @@ function renderStaffList() {
   
   STAFF.forEach((member, index) => {
     const item = document.createElement('div');
+    item.className = 'staff-list-item'; // Using your existing class
     item.style = "display: flex; justify-content: space-between; align-items: center; padding: 8px; border-bottom: 1px solid var(--border-soft); color: white; font-size: 14px;";
     
     item.innerHTML = `
-      <span 
-        contenteditable="${IS_ADMIN}" 
-        class="editable-staff-name" 
-        onblur="renameStaffInline(${index}, this)"
-        onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"
-      >${member}</span>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="reorder-controls" style="display: flex; flex-direction: column; gap: 2px;">
+          <button onclick="moveStaff(${index}, -1)" ${index === 0 ? 'disabled style="opacity:0.3"' : ''} class="btn-reorder">▲</button>
+          <button onclick="moveStaff(${index}, 1)" ${index === STAFF.length - 1 ? 'disabled style="opacity:0.3"' : ''} class="btn-reorder">▼</button>
+        </div>
+        <span 
+          contenteditable="${IS_ADMIN}" 
+          class="editable-staff-name" 
+          onblur="renameStaffInline(${index}, this)"
+          onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"
+        >${member}</span>
+      </div>
       
       <button onclick="removeStaff(${index})" class="btn-list-delete" style="width: auto !important; padding: 4px 8px !important; margin: 0 !important;">Remove</button>
     `;
@@ -1100,14 +1148,28 @@ async function addStaff() {
 async function removeStaff(index) {
   const nameToRemove = STAFF[index];
   if (confirm(`Remove ${nameToRemove}?`)) {
+    // 1. Remove from local state
     STAFF.splice(index, 1);
     
-    // Update local storage
+    // 2. Update local storage
     localStorage.setItem('retain_staff', JSON.stringify(STAFF));
     
-    // Remove from Supabase
+    // 3. Remove from Supabase explicitly
     if (USE_SUPABASE && supabase) {
-      await supabase.from('staff').delete().eq('name', nameToRemove);
+      setSyncing(true); // Visual feedback
+      try {
+        const { error } = await supabase
+          .from('staff')
+          .delete()
+          .eq('name', nameToRemove);
+        
+        if (error) throw error;
+        console.log("Staff removed from cloud");
+      } catch (err) {
+        console.error("Cloud staff deletion failed:", err);
+      } finally {
+        setSyncing(false);
+      }
     }
 
     populateStaffFilter();
@@ -1206,17 +1268,35 @@ function renderYearList() {
 // Logic to Delete a Year
 async function removeYear(year) {
   if (confirm(`Are you sure you want to remove ${year}? All projects for this year will be deleted.`)) {
-    // 1. Remove from data object
+    // 1. Remove from local data object
     delete projects[year];
     
-    // 2. Remove the button from the sidebar
+    // 2. Remove the button from the sidebar UI
     const nav = document.getElementById("yearNav");
     const buttons = Array.from(nav.querySelectorAll('.year-btn'));
     const btnToRemove = buttons.find(btn => parseInt(btn.textContent) === year);
     if (btnToRemove) btnToRemove.remove();
     
-    // 3. Save and refresh
-    await saveProjects();
+    // 3. Sync deletion to Supabase
+    if (USE_SUPABASE && supabase) {
+      setSyncing(true);
+      try {
+        // Delete all rows where the 'year' column matches
+        const { error } = await supabase
+          .from('projects')
+          .delete()
+          .eq('year', year);
+        
+        if (error) throw error;
+      } catch (err) {
+        console.error("Failed to delete year from cloud:", err);
+      } finally {
+        setSyncing(false);
+      }
+    } else {
+      saveToLocal();
+    }
+
     renderYearList();
   }
 }
@@ -1564,4 +1644,83 @@ function updateModalCompleteUI() {
         btn.classList.remove('is-completed');
         text.textContent = 'Mark as Completed';
     }
+}
+
+async function duplicateProject(originalId) {
+  const original = findProject(originalId);
+  if (!original) return;
+
+  const duplicate = {
+    ...original,
+    id: Date.now(),
+    name: `${original.name} (Copy)`
+  };
+
+  if (!projects[currentYear]) projects[currentYear] = [];
+  projects[currentYear].push(duplicate);
+
+  renderAll();
+  
+  // Show a themed toast instead of an alert
+  showToast(`Duplicated: ${original.name}`);
+
+  setSyncing(true);
+  try {
+    await saveProjects(duplicate);
+  } catch (err) {
+    console.error("Sync failed:", err);
+    showToast("Sync Failed", "danger");
+  } finally {
+    setSyncing(false);
+  }
+}
+
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <div class="toast-content">
+      <span class="toast-icon">${type === 'success' ? '✓' : '✕'}</span>
+      <span class="toast-msg">${message}</span>
+    </div>
+  `;
+  
+  container.appendChild(toast);
+
+  // Trigger animation
+  setTimeout(() => toast.classList.add('visible'), 10);
+
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+async function moveStaff(index, direction) {
+  if (!IS_ADMIN) return;
+
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= STAFF.length) return;
+
+  // 1. Swap elements in the local array
+  [STAFF[index], STAFF[newIndex]] = [STAFF[newIndex], STAFF[index]];
+
+  // 2. Persist order
+  localStorage.setItem('retain_staff', JSON.stringify(STAFF));
+  
+  // NOTE: If using Supabase, usually staff order is handled by an 'order' column.
+  // For now, this updates the local order which will persist on this device.
+  if (USE_SUPABASE && supabase) {
+    // If your DB has an order column, you would update it here.
+    // Otherwise, the order is determined by the STAFF array load in loadProjects().
+    console.log("Local order updated. To sync across devices, add an 'order' column to Supabase.");
+  }
+
+  // 3. Refresh UI
+  renderStaffList();
+  populateStaffFilter();
+  renderAll(); // This reorders the timeline rows immediately
 }

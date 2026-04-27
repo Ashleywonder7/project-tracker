@@ -322,7 +322,7 @@ button {
   flex-shrink: 0;
   position: sticky;
   left: 0;
-  z-index: 10;
+  z-index: 100;
   height: var(--header-h);
   border-right: 1px solid var(--border);
   background: #5f7cd2;
@@ -1422,4 +1422,89 @@ body.viewer-mode .picker-panel {
 .modal-content::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 10px;
+}
+
+/* Toast Container positioning */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* The Toast Box - matches Assignment Dashboard UI */
+.toast {
+    background: #1e1e1e; /* Match your app background */
+    border: 1px solid var(--border-soft);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    transform: translateX(120%);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    min-width: 200px;
+}
+
+.toast.visible {
+    transform: translateX(0);
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toast-icon {
+    background: var(--accent); /* Your yellow/orange color */
+    color: #000;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+.toast-danger .toast-icon {
+    background: #ef4444; /* Standard danger red */
+}
+
+.toast-msg {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-reorder {
+    background: var(--bg-soft);
+    border: 1px solid var(--border-soft);
+    color: white;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-reorder:hover:not([disabled]) {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.btn-reorder[disabled] {
+    cursor: not-allowed;
+}
+
+/* 1. Ensure the Month/Day header is on the top-most layer */
+#monthsHeader {
+    position: sticky;
+    top: 0;
+    z-index: 100;           /* High z-index to stay above rows */
+    background-color: #121212; /* MUST be solid, not transparent */
+    border-bottom: 1px solid var(--border-soft);
 }
