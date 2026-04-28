@@ -214,7 +214,7 @@ function renderAll() {
 
   // Update Project Count
   document.getElementById('projectCount').textContent = 
-    `${yearProjects.length} project${yearProjects.length !== 1 ? 's' : ''}`;
+    `${yearProjects.length} assignment${yearProjects.length !== 1 ? 's' : ''}`;
     
   // Update Staff Count
   document.getElementById('staffCount').textContent = 
@@ -280,7 +280,7 @@ function renderAll() {
   if (empty) empty.classList.toggle('visible', !hasAny);
 
   document.getElementById('projectCount').textContent =
-    `${yearProjects.length} project${yearProjects.length !== 1 ? 's' : ''}`;
+    `${yearProjects.length} assignment${yearProjects.length !== 1 ? 's' : ''}`;
 }
 
 
@@ -714,8 +714,8 @@ async function loadProjects() {
       
       // Fetch both projects and staff in parallel
       const [remoteProjects, { data: staffData, error: staffError }] = await Promise.all([
-        loadFromSupabase(), //
-        supabase.from('staff').select('name') //
+        loadFromSupabase(),
+        supabase.from('staff').select('name').order('display_order', { ascending: true }) // Added ordering
       ]);
 
       if (!staffError && staffData) {
@@ -1602,26 +1602,52 @@ async function renameStaffInline(index, element) {
   const oldName = STAFF[index];
 
   if (!newName || newName === oldName) {
-    element.innerText = oldName; // Reset if empty
+    element.innerText = oldName;
     return;
   }
 
-  // 1. Update arrays and projects
+  // 1. Update local state
   STAFF[index] = newName;
   for (const year in projects) {
-    projects[year].forEach(p => { if (p.staff === oldName) p.staff = newName; });
+    projects[year].forEach(p => { 
+      if (p.staff === oldName) p.staff = newName; 
+    });
   }
 
-  // 2. Persist
+  // 2. Persist locally
   localStorage.setItem('retain_staff', JSON.stringify(STAFF));
-  if (USE_SUPABASE) {
-    await supabase.from('staff').update({ name: newName }).eq('name', oldName);
-    await saveToSupabase(); 
-  } else {
-    saveToLocal();
+  saveToLocal(); // Saves the updated project assignments
+
+  // 3. Persist to Supabase
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true);
+    try {
+      // Step A: Update the staff table name
+      const { error: staffError } = await supabase
+        .from('staff')
+        .update({ name: newName })
+        .eq('name', oldName);
+      
+      if (staffError) throw staffError;
+
+      // Step B: Update all projects assigned to the old name
+      const { error: projectError } = await supabase
+        .from('projects')
+        .update({ staff: newName })
+        .eq('staff', oldName);
+
+      if (projectError) throw projectError;
+
+      showToast("Staff updated successfully");
+    } catch (err) {
+      console.error("Cloud rename failed:", err);
+      showToast("Sync Error", "danger");
+      // Optional: Revert local state if DB fails
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  // 3. Refresh UI quietly
   populateStaffFilter();
   renderAll();
 }
@@ -1706,21 +1732,37 @@ async function moveStaff(index, direction) {
   if (newIndex < 0 || newIndex >= STAFF.length) return;
 
   // 1. Swap elements in the local array
-  [STAFF[index], STAFF[newIndex]] = [STAFF[newIndex], STAFF[index]];
+  const temp = STAFF[index];
+  STAFF[index] = STAFF[newIndex];
+  STAFF[newIndex] = temp;
 
-  // 2. Persist order
+  // 2. Persist locally
   localStorage.setItem('retain_staff', JSON.stringify(STAFF));
   
-  // NOTE: If using Supabase, usually staff order is handled by an 'order' column.
-  // For now, this updates the local order which will persist on this device.
+  // 3. Persist to Supabase
   if (USE_SUPABASE && supabase) {
-    // If your DB has an order column, you would update it here.
-    // Otherwise, the order is determined by the STAFF array load in loadProjects().
-    console.log("Local order updated. To sync across devices, add an 'order' column to Supabase.");
+    setSyncing(true);
+    try {
+      // Update the order for both affected staff members
+      const updates = STAFF.map((name, idx) => ({
+        name: name,
+        display_order: idx
+      }));
+
+      // Upsert the new order based on name
+      const { error } = await supabase
+        .from('staff')
+        .upsert(updates, { onConflict: 'name' });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error("Cloud reorder failed:", err);
+    } finally {
+      setSyncing(false);
+    }
   }
 
-  // 3. Refresh UI
   renderStaffList();
   populateStaffFilter();
-  renderAll(); // This reorders the timeline rows immediately
+  renderAll();
 }
