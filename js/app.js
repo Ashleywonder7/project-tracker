@@ -707,50 +707,39 @@ async function saveToSupabase() {
 async function loadProjects() {
   let success = false;
 
-  // 1. Attempt Supabase Load
   if (USE_SUPABASE) {
     try {
-      supabase = initSupabase(); //
+      supabase = initSupabase(); 
       
-      // Fetch both projects and staff in parallel
-      const [remoteProjects, { data: staffData, error: staffError }] = await Promise.all([
+      // Added 'holidays' to the parallel fetch
+      const [remoteProjects, { data: staffData }, { data: holidayData }] = await Promise.all([
         loadFromSupabase(),
-        supabase.from('staff').select('name').order('display_order', { ascending: true }) // Added ordering
+        supabase.from('staff').select('name').order('display_order', { ascending: true }),
+        supabase.from('holidays').select('*') // NEW: Fetch holidays
       ]);
 
-      if (!staffError && staffData) {
-        // Update state with cloud data
-        if (staffData.length > 0) {
-          STAFF = staffData.map(s => s.name); //
-        }
-        projects = remoteProjects || projects;
-        
-        updateDbStatus('Supabase', true); // Indigo dot for Cloud
-        success = true;
-      }
+      if (staffData) STAFF = staffData.map(s => s.name); 
+      if (holidayData) holidays = holidayData; // NEW: Update local holiday state
+      projects = remoteProjects || projects;
+      
+      updateDbStatus('Supabase', true); 
+      success = true;
     } catch (err) {
-      console.warn("Supabase connection failed, falling back to local storage:", err);
+      console.warn("Supabase failed, falling back to local storage:", err);
     }
   }
 
-  // 2. Local Fallback (runs if Supabase is disabled OR fetch failed)
   if (!success) {
-    projects = loadFromLocal(); //
-    const rawStaff = localStorage.getItem('retain_staff'); //
-    
-    if (rawStaff) {
-      STAFF = JSON.parse(rawStaff); //
-    } else {
-      // Hardcoded defaults for a brand new local user
-      STAFF = ['Joshua', 'Vanessa', 'Vivian 1', 'Padmore', 'Eugene']; //
-      if (Object.keys(projects).length === 0) {
-        projects = { 2026: [], 2027: [], 2028: [] }; //
-      }
-    }
-    
-    updateDbStatus('Local Storage', false); // Green dot for Local
+    // Local Fallback logic
+    projects = loadFromLocal(); 
+    const rawStaff = localStorage.getItem('retain_staff'); 
+    const rawHolidays = localStorage.getItem('retain_holidays');
+    if (rawStaff) STAFF = JSON.parse(rawStaff);
+    if (rawHolidays) holidays = JSON.parse(rawHolidays);
+    updateDbStatus('Local Storage', false); 
   }
 }
+
 
 function loadStaffLocal() {
   const raw = localStorage.getItem('retain_staff');
@@ -1193,7 +1182,7 @@ function handleHolidayModalClick(e) {
 }
 
 // Add Holiday Logic
-function addHoliday() {
+async function addHoliday() {
   const name = document.getElementById('holidayName').value.trim();
   const dateVal = document.getElementById('holidayDate').value;
 
@@ -1201,19 +1190,57 @@ function addHoliday() {
 
   const dateObj = new Date(dateVal);
   const dayIdx = dayOfYear(dateObj);
+  const newHoliday = { name, date: dateVal, day_idx: dayIdx };
 
-  holidays.push({ name, date: dateVal, dayIdx });
+  // 1. Update Local State & Storage
+  holidays.push(newHoliday);
+  localStorage.setItem('retain_holidays', JSON.stringify(holidays));
+
+  // 2. Sync to Supabase
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.from('holidays').insert([newHoliday]);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Cloud holiday save failed:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }
   
-  // Cleanup and Refresh
   document.getElementById('holidayName').value = '';
   document.getElementById('holidayDate').value = '';
   renderHolidayList();
-  renderAll(); // Re-renders the timeline with new highlights
+  renderAll(); 
 }
 
 // Remove Holiday
-function removeHoliday(index) {
+async function removeHoliday(index) {
+  const holidayToRemove = holidays[index];
+  
+  // 1. Remove from Local State & Storage
   holidays.splice(index, 1);
+  localStorage.setItem('retain_holidays', JSON.stringify(holidays));
+
+  // 2. Remove from Supabase
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('holidays')
+        .delete()
+        .eq('name', holidayToRemove.name)
+        .eq('date', holidayToRemove.date);
+      
+      if (error) throw error;
+    } catch (err) {
+      console.error("Cloud holiday deletion failed:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   renderHolidayList();
   renderAll();
 }
