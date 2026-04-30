@@ -711,17 +711,23 @@ async function loadProjects() {
     try {
       supabase = initSupabase(); 
       
-      // Added 'holidays' to the parallel fetch
       const [remoteProjects, { data: staffData }, { data: holidayData }] = await Promise.all([
         loadFromSupabase(),
         supabase.from('staff').select('name').order('display_order', { ascending: true }),
-        supabase.from('holidays').select('*') // NEW: Fetch holidays
+        supabase.from('holidays').select('*') 
       ]);
 
       if (staffData) STAFF = staffData.map(s => s.name); 
-      if (holidayData) holidays = holidayData; // NEW: Update local holiday state
+
+      // FIX: Map day_idx to dayIdx so buildGridHighlights can see it
+      if (holidayData) {
+        holidays = holidayData.map(h => ({
+          ...h,
+          dayIdx: h.day_idx // Map DB column to UI property
+        }));
+      }
+
       projects = remoteProjects || projects;
-      
       updateDbStatus('Supabase', true); 
       success = true;
     } catch (err) {
@@ -730,12 +736,19 @@ async function loadProjects() {
   }
 
   if (!success) {
-    // Local Fallback logic
     projects = loadFromLocal(); 
     const rawStaff = localStorage.getItem('retain_staff'); 
     const rawHolidays = localStorage.getItem('retain_holidays');
     if (rawStaff) STAFF = JSON.parse(rawStaff);
-    if (rawHolidays) holidays = JSON.parse(rawHolidays);
+    
+    // FIX: Apply same mapping for local storage if needed
+    if (rawHolidays) {
+      const parsed = JSON.parse(rawHolidays);
+      holidays = parsed.map(h => ({
+        ...h,
+        dayIdx: h.dayIdx || h.day_idx 
+      }));
+    }
     updateDbStatus('Local Storage', false); 
   }
 }
@@ -1190,7 +1203,14 @@ async function addHoliday() {
 
   const dateObj = new Date(dateVal);
   const dayIdx = dayOfYear(dateObj);
-  const newHoliday = { name, date: dateVal, day_idx: dayIdx };
+
+  // Define the holiday with both naming conventions
+  const newHoliday = { 
+    name, 
+    date: dateVal, 
+    day_idx: dayIdx, // For Database
+    dayIdx: dayIdx   // For UI Logic (buildGridHighlights)
+  };
 
   // 1. Update Local State & Storage
   holidays.push(newHoliday);
@@ -1200,7 +1220,12 @@ async function addHoliday() {
   if (USE_SUPABASE && supabase) {
     setSyncing(true);
     try {
-      const { error } = await supabase.from('holidays').insert([newHoliday]);
+      // Send the object (Supabase will ignore the extra dayIdx property if it doesn't exist in the schema)
+      const { error } = await supabase.from('holidays').insert([{
+        name: newHoliday.name,
+        date: newHoliday.date,
+        day_idx: newHoliday.day_idx
+      }]);
       if (error) throw error;
     } catch (err) {
       console.error("Cloud holiday save failed:", err);
