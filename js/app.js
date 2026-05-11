@@ -713,7 +713,7 @@ async function loadProjects() {
     try {
       supabase = initSupabase(); 
       
-      const [remoteProjects, { data: staffData }, { data: holidayData }] = await Promise.all([
+      const [remoteProjects, { data: staffData }, { data: holidayData }, { data: trainingData }] = await Promise.all([
         loadFromSupabase(),
         supabase.from('staff').select('name').order('display_order', { ascending: true }),
         supabase.from('holidays').select('*'), 
