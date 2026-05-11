@@ -1445,12 +1445,13 @@ function getProjectAlerts() {
     const startDate = new Date(p.start + 'T00:00:00');
     startDate.setHours(0, 0, 0, 0);
     
-    const diffTime = today - startDate;
-    const daysActive = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    // NEW: Calculate only workdays (Excludes Sat/Sun)
+    const daysActive = countWorkdays(startDate, today);
 
     if (daysActive >= 0) {
       let type, category;
       
+      // Adjusted thresholds for business days (20 workdays ≈ 1 month)
       if (daysActive >= 20) {
         type = 'past'; // Red
         category = 'CRITICAL DURATION';
@@ -1467,7 +1468,7 @@ function getProjectAlerts() {
         staff: p.staff, 
         type: type, 
         daysDiff: daysActive, 
-        msg: `${category} • DAY ${daysActive}` 
+        msg: `${category} • BUSINESS DAY ${daysActive}` 
       });
     }
   });
@@ -1967,4 +1968,27 @@ function renderGridKey() {
       <span>${item.label}</span>
     </div>
   `).join('');
+}
+
+/**
+ * Counts business days between two dates, inclusive of the start date.
+ * Excludes Saturdays (6) and Sundays (0).
+ */
+function countWorkdays(start, end) {
+  if (start > end) return -1;
+  
+  let count = 0;
+  let current = new Date(start);
+  
+  while (current <= end) {
+    const dayOfWeek = current.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  
+  // Return count - 1 if you want to show "Day 0" for the first day, 
+  // or just return count if the first day is "Day 1".
+  return count > 0 ? count - 1 : 0; 
 }
