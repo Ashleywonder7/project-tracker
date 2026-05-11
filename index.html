@@ -41,7 +41,8 @@
     
     <div class="sidebar-label"></div>
       <button id="staff-btn" onclick="openStaffModal()" style="font-size: 12px; margin-bottom: 10px;">Manage Staff</button>
-      <button id="holiday-btn" onclick="openHolidayModal()">Manage Holidays</button>
+      <button id="holiday-btn" onclick="openHolidayModal()">Mark Holidays</button>
+      <button id="training-btn" onclick="openTrainingModal()">Mark Trainings</button>
       <ul id="staffSidebarList">
         </ul>
     </div>
@@ -65,6 +66,7 @@
           <span class="count-divider">•</span>
           <span id="staffCount">0 staff</span>
         </p>
+        <div id="gridKey" class="color-key-container"></div>
       </div>
       <div class="header-right">
         <div class="view-toggle">
@@ -216,6 +218,7 @@
   </div>
   </div>
 
+
   <div id="yearModal" class="modal" onclick="handleYearModalClick(event)">
   <div class="modal-content">
     <div class="modal-header">
@@ -233,6 +236,31 @@
 
     <div class="modal-actions">
       <button class="btn-save" onclick="saveNewYear()">Add Year</button>
+    </div>
+  </div>
+  </div>
+
+
+  <div id="trainingModal" class="modal" onclick="handleTrainingModalClick(event)">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Manage Trainings</h3>
+      <button class="close-btn" onclick="closeTrainingModal()">✕</button>
+    </div>
+    
+    <div id="trainingListContainer" style="max-height: 200px; overflow-y: auto; margin-bottom: 15px; border-bottom: 1px solid var(--border-soft);">
+      </div>
+
+    <div class="field-group">
+      <label class="field-label">Training Name</label>
+      <input type="text" id="trainingName" placeholder="e.g. Safety Workshop">
+      
+      <label class="field-label" style="margin-top:12px;">Date</label>
+      <input type="date" id="trainingDate">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-save" onclick="addTraining()">Save Training</button>
     </div>
   </div>
   </div>

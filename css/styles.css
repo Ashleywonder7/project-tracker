@@ -961,7 +961,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .is-holiday {
-  background: rgba(232, 57, 188, 0.26); /* Faint red */
+  background: rgba(232, 57, 188, 0.614); /* Faint red */
   border-left: 1px dashed rgba(255, 0, 0, 0.3);
   border-right: 1px dashed rgba(255, 0, 0, 0.3);
 }
@@ -979,7 +979,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   padding-left: 12px;
 }
 
-#holiday-btn:hover, #add-year-btn:hover, #staff-btn:hover {
+#holiday-btn:hover, #add-year-btn:hover, #staff-btn:hover, #training-btn:hover {
   color: var(--accent);
   background: var(--surface-2);
 }
@@ -1035,13 +1035,14 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 .notif-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column; /* Stacks name and status vertically */
+  align-items: flex-start; /* Aligns text to the left */
   padding: 12px;
   margin-bottom: 8px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.397);
   border-left: 12px solid transparent;
+  gap: 4px; /* Adds space between the name and the status message */
 }
 
 
@@ -1084,10 +1085,15 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: var(--text-dim);
 }
 
+.notif-info {
+  width: 100%;
+}
+
 .notif-status {
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
 /* Target only the content box inside the Notification Modal */
@@ -1508,3 +1514,52 @@ body.viewer-mode .picker-panel {
     background-color: #121212; /* MUST be solid, not transparent */
     border-bottom: 1px solid var(--border-soft);
 }
+
+/* styles.css */
+.is-training {
+  background: rgba(16, 185, 129, 0.557); /* Faint Emerald Green */
+  border-left: 1px dashed rgba(16, 185, 129, 0.4);
+  border-right: 1px dashed rgba(16, 185, 129, 0.4);
+}
+
+#training-btn {
+  white-space: nowrap;
+  width: 90%;
+  text-align: left;
+  font-size: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  padding: 7px 15px;    /* Adds a bit of breathing room on the sides */
+  display: block;       /* Ensures it respects the bottom margin */
+  padding-left: 12px;
+}
+
+.color-key-container {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Dots matching the grid highlight logic */
+.key-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.dot-weekend { background: rgba(94, 90, 91, 0.4); } /* Matches .is-weekend */
+.dot-holiday { background: rgba(232, 57, 188, 0.689); } /* Matches .is-holiday */
+.dot-training { background: rgba(16, 185, 129, 0.71); } /* Matches training logic */
+.dot-today    { background: rgba(245, 159, 11, 0.8); } /* Matches .is-today */

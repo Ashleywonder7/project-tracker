@@ -19,6 +19,7 @@ let selectedColor  = '#F59E0B';
 let activeFilter   = 'all';
 let STAFF = [];
 let holidays = []; // Format: { name: "Xmas", date: "2026-12-25", dayIdx: 359 }
+let trainings = [];
 
 const urlParams = new URLSearchParams(window.location.search);
 const IS_ADMIN = urlParams.get('admin') === 'true';
@@ -49,6 +50,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   populateStaffFilter();
   buildMonthsHeader();
   renderAll();
+  renderGridKey();
 
   applyPermissions(); // Run permissions check
 
@@ -714,7 +716,8 @@ async function loadProjects() {
       const [remoteProjects, { data: staffData }, { data: holidayData }] = await Promise.all([
         loadFromSupabase(),
         supabase.from('staff').select('name').order('display_order', { ascending: true }),
-        supabase.from('holidays').select('*') 
+        supabase.from('holidays').select('*'), 
+        supabase.from('trainings').select('*') // Fetch from a new 'trainings' table
       ]);
 
       if (staffData) STAFF = staffData.map(s => s.name); 
@@ -726,6 +729,14 @@ async function loadProjects() {
           dayIdx: h.day_idx // Map DB column to UI property
         }));
       }
+
+      if (trainingData) {
+        trainings = trainingData.map(t => ({
+          ...t,
+          dayIdx: t.day_idx // Map DB column to UI property
+        }));
+      }
+
 
       projects = remoteProjects || projects;
       updateDbStatus('Supabase', true); 
@@ -739,6 +750,8 @@ async function loadProjects() {
     projects = loadFromLocal(); 
     const rawStaff = localStorage.getItem('retain_staff'); 
     const rawHolidays = localStorage.getItem('retain_holidays');
+    const rawTrainings = localStorage.getItem('retain_trainings');
+
     if (rawStaff) STAFF = JSON.parse(rawStaff);
     
     // FIX: Apply same mapping for local storage if needed
@@ -749,6 +762,9 @@ async function loadProjects() {
         dayIdx: h.dayIdx || h.day_idx 
       }));
     }
+
+    if (rawTrainings) trainings = JSON.parse(rawTrainings);
+
     updateDbStatus('Local Storage', false); 
   }
 }
@@ -1001,6 +1017,16 @@ function buildGridHighlights(totalDays) {
       const highlight = document.createElement('div');
       highlight.className = 'col-highlight is-holiday';
       highlight.style.gridColumn = h.dayIdx + 1;
+      layer.appendChild(highlight);
+    }
+  });
+
+  trainings.forEach(t => {
+    const tDate = new Date(t.date);
+    if (tDate.getFullYear() === currentYear) {
+      const highlight = document.createElement('div');
+      highlight.className = 'col-highlight is-training'; // New CSS class
+      highlight.style.gridColumn = t.dayIdx + 1;
       layer.appendChild(highlight);
     }
   });
@@ -1407,49 +1433,46 @@ function getProjectAlerts() {
   let alerts = [];
   const realYear = new Date().getFullYear();
   const activeProjects = projects[realYear] || [];
+  const seenNames = new Set();
 
   activeProjects.forEach(p => {
-
-    // NEW: Skip this project if it is marked as completed
     if (p.completed) return;
 
-    const dueDate = new Date(p.end + 'T00:00:00');
-    dueDate.setHours(0, 0, 0, 0);
-    
-    const diffTime = dueDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const normalizedName = p.name.trim().toLowerCase();
+    if (seenNames.has(normalizedName)) return;
+    seenNames.add(normalizedName);
 
-    if (diffDays <= -1) {
-      const daysOverdue = Math.abs(diffDays);
+    const startDate = new Date(p.start + 'T00:00:00');
+    startDate.setHours(0, 0, 0, 0);
+    
+    const diffTime = today - startDate;
+    const daysActive = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (daysActive >= 0) {
+      let type, category;
+      
+      if (daysActive >= 20) {
+        type = 'past'; // Red
+        category = 'CRITICAL DURATION';
+      } else if (daysActive >= 10) {
+        type = 'due';  // Amber
+        category = 'EXTENDED WORK';
+      } else {
+        type = 'soon'; // Blue
+        category = 'ACTIVE PHASE';
+      }
+
       alerts.push({ 
         name: p.name, 
         staff: p.staff, 
-        type: 'past', 
-        daysDiff: diffDays, // Store for sorting
-        msg: `Overdue by ${daysOverdue} day${daysOverdue > 1 ? 's' : ''}` 
-      });
-    } else if (diffDays === 0) {
-      alerts.push({ 
-        name: p.name, 
-        staff: p.staff, 
-        type: 'due', 
-        daysDiff: 0, 
-        msg: 'Due today' 
-      });
-    } else if (diffDays > 0 && diffDays <= 3) {
-      alerts.push({ 
-        name: p.name, 
-        staff: p.staff, 
-        type: 'soon', 
-        daysDiff: diffDays, 
-        msg: `Due in ${diffDays} days` 
+        type: type, 
+        daysDiff: daysActive, 
+        msg: `${category} • DAY ${daysActive}` 
       });
     }
   });
   
-  // SORTING LOGIC: Smallest (most negative) number comes first.
-  // This puts -5 (overdue) before -1, before 0 (today), before 3 (soon).
-  return alerts.sort((a, b) => a.daysDiff - b.daysDiff);
+  return alerts.sort((a, b) => b.daysDiff - a.daysDiff);
 }
 
 function updateNotifBadge() {
@@ -1571,7 +1594,7 @@ function checkAutoNotify() {
 function applyPermissions() {
   if (!IS_ADMIN) {
     // 1. Hide Management Buttons
-    const toHide = ['#add-year-btn', '#staff-btn', '#holiday-btn', '.add-btn'];
+    const toHide = ['#add-year-btn', '#staff-btn', '#holiday-btn', '#training-btn', '.add-btn'];
     toHide.forEach(selector => {
       const el = document.querySelector(selector);
       if (el) el.style.display = 'none';
@@ -1817,4 +1840,131 @@ async function moveStaff(index, direction) {
   renderStaffList();
   populateStaffFilter();
   renderAll();
+}
+
+// Open/Close Training Modal
+function openTrainingModal() {
+  document.getElementById('trainingModal').classList.add('open');
+  renderTrainingList();
+}
+
+function closeTrainingModal() {
+  document.getElementById('trainingModal').classList.remove('open');
+}
+
+function handleTrainingModalClick(e) {
+  if (e.target === document.getElementById('trainingModal')) closeTrainingModal();
+}
+
+// Add Training Logic
+async function addTraining() {
+  const name = document.getElementById('trainingName').value.trim();
+  const dateVal = document.getElementById('trainingDate').value;
+
+  if (!name || !dateVal) return alert("Please fill both fields");
+
+  const dateObj = new Date(dateVal);
+  const dayIdx = dayOfYear(dateObj);
+
+  const newTraining = { 
+    name, 
+    date: dateVal, 
+    day_idx: dayIdx,
+    dayIdx: dayIdx 
+  };
+
+  // 1. Persist to Local Storage
+  trainings.push(newTraining);
+  localStorage.setItem('retain_trainings', JSON.stringify(trainings));
+
+  // 2. Persist to Supabase
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true);
+    try {
+      const { error } = await supabase.from('trainings').insert([{
+        name: newTraining.name,
+        date: newTraining.date,
+        day_idx: newTraining.day_idx
+      }]);
+      if (error) throw error;
+      showToast("Training synced to cloud");
+    } catch (err) {
+      console.error("Cloud training save failed:", err);
+      showToast("Saved locally, cloud sync failed", "danger");
+    } finally {
+      setSyncing(false);
+    }
+  }
+  
+  document.getElementById('trainingName').value = '';
+  document.getElementById('trainingDate').value = '';
+  renderTrainingList();
+  renderAll(); 
+}
+
+// Remove Training
+async function removeTraining(index) {
+  const trainingToRemove = trainings[index];
+  
+  // 1. Remove from local state and storage
+  trainings.splice(index, 1);
+  localStorage.setItem('retain_trainings', JSON.stringify(trainings));
+
+  // 2. Remove from Supabase
+  if (USE_SUPABASE && supabase) {
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from('trainings')
+        .delete()
+        .eq('name', trainingToRemove.name)
+        .eq('date', trainingToRemove.date);
+      
+      if (error) throw error;
+      showToast("Training removed from cloud");
+    } catch (err) {
+      console.error("Cloud training deletion failed:", err);
+    } finally {
+      setSyncing(false);
+    }
+  }
+
+  renderTrainingList();
+  renderAll();
+}
+
+// UI List inside Modal
+function renderTrainingList() {
+  const container = document.getElementById('trainingListContainer');
+  container.innerHTML = '';
+  
+  trainings.forEach((t, i) => {
+    const item = document.createElement('div');
+    item.className = 'staff-list-item'; 
+    item.style = "display: flex; justify-content: space-between; padding: 8px; color: white; font-size: 13px;";
+    item.innerHTML = `
+      <span>${t.name} (${formatShort(new Date(t.date))})</span>
+      <button onclick="removeTraining(${i})" style="width: auto; background: #f9f9f9; color: var(--danger); border: none; cursor: pointer; font-size: 12px;">Remove</button>
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderGridKey() {
+  const container = document.getElementById('gridKey');
+  if (!container) return;
+  
+  const items = [
+    { class: 'dot-today',    label: 'Today' },
+    { class: 'dot-weekend',  label: 'Weekend' },
+    { class: 'dot-holiday',  label: 'Holiday' },
+    { class: 'dot-training', label: 'Training' }
+  ];
+  
+  container.innerHTML = items.map(item => `
+    <div class="key-item">
+      <span class="key-dot ${item.class}"></span>
+      <span>${item.label}</span>
+    </div>
+  `).join('');
 }
