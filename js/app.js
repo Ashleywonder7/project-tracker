@@ -221,7 +221,7 @@ yearProjects.forEach(p => {
 const uniqueProjectCount = uniqueNames.size;
 
   // Use STAFF.length for the total count, or 1 if a specific staff is filtered
-  const displayStaffCount = (activeFilter === 'all' ? STAFF.length : 1);
+  const displayStaffCount = (activeFilter === 'all' ? STAFF.length : 1) - 1;
   
   const filteredStaff = activeFilter === 'all'
     ? STAFF
