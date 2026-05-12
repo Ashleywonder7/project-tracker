@@ -237,7 +237,7 @@ button {
 }
 
 .subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-top: 4px;
   font-family: 'DM Mono', monospace;

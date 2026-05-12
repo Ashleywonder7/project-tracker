@@ -204,6 +204,22 @@ function renderAll() {
 
   const yearProjects = (projects[currentYear] || []);
 
+// --- UNIQUE UNCOMPLETED ASSIGNMENT COUNTER LOGIC ---
+const uniqueNames = new Set();
+
+yearProjects.forEach(p => {
+  // 1. Filter out completed projects
+  if (p.completed) return;
+
+  // 2. Ensure the project has a name before processing
+  if (p.name) {
+    // 3. Normalize for uniqueness (case-insensitive and no extra spaces)
+    uniqueNames.add(p.name.trim().toLowerCase());
+  }
+});
+
+const uniqueProjectCount = uniqueNames.size;
+
   // Use STAFF.length for the total count, or 1 if a specific staff is filtered
   const displayStaffCount = (activeFilter === 'all' ? STAFF.length : 1);
   
@@ -216,7 +232,7 @@ function renderAll() {
 
   // Update Project Count
   document.getElementById('projectCount').textContent = 
-    `${yearProjects.length} assignment${yearProjects.length !== 1 ? 's' : ''}`;
+    `${uniqueProjectCount} active assignment${uniqueProjectCount !== 1 ? 's' : ''}`;
     
   // Update Staff Count
   document.getElementById('staffCount').textContent = 
@@ -280,9 +296,6 @@ function renderAll() {
   buildGridHighlights(totalDays);
 
   if (empty) empty.classList.toggle('visible', !hasAny);
-
-  document.getElementById('projectCount').textContent =
-    `${yearProjects.length} assignment${yearProjects.length !== 1 ? 's' : ''}`;
 }
 
 
