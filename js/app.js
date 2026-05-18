@@ -1768,7 +1768,7 @@ async function duplicateProject(originalId) {
   const duplicate = {
     ...original,
     id: Date.now(),
-    name: `${original.name} (Copy)`
+    name: `${original.name}`
   };
 
   if (!projects[currentYear]) projects[currentYear] = [];
