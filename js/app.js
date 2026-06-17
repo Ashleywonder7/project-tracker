@@ -54,6 +54,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   applyPermissions(); // Run permissions check
 
+  // 3. Initialize Realtime Subscriptions (INSERTED HERE)
+  subscribeToRealtimeChanges();
+
   // Check for auto-popup after everything is loaded
   checkAutoNotify();
   
@@ -669,6 +672,56 @@ function saveToLocal() {
 //   alter table projects enable row level security;
 //   create policy "allow all" on projects for all using (true);
 // ─────────────────────────────────────────────────
+
+// ─── REALTIME SYNC ──────────────────────────────
+function subscribeToRealtimeChanges() {
+  if (!USE_SUPABASE || !supabase) return;
+
+  // Listen to any database event on the key tables
+  supabase
+    .channel('realtime-updates')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'projects' },
+      async () => {
+        console.log('Realtime change detected in projects! Syncing...');
+        await refreshApp();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'staff' },
+      async () => {
+        await refreshApp();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'holidays' },
+      async () => {
+        await refreshApp();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'trainings' },
+      async () => {
+        await refreshApp();
+      }
+    )
+    .subscribe();
+}
+
+async function refreshApp() {
+  // Safe-guard: Don't refresh if the user is currently typing in the edit modal
+  if (editingId !== null) return; 
+  
+  await loadProjects(); 
+  renderYearNav(); 
+  populateStaffFilter();
+  buildMonthsHeader();
+  renderAll();
+}
 
 function initSupabase() {
   if (!USE_SUPABASE || !window.supabase) return null;
