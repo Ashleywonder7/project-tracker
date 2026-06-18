@@ -21,6 +21,7 @@ let STAFF = [];
 let holidays = []; // Format: { name: "Xmas", date: "2026-12-25", dayIdx: 359 }
 let trainings = [];
 
+
 const urlParams = new URLSearchParams(window.location.search);
 const IS_ADMIN = urlParams.get('admin') === 'true';
 
@@ -677,50 +678,69 @@ function saveToLocal() {
 function subscribeToRealtimeChanges() {
   if (!USE_SUPABASE || !supabase) return;
 
-  // Listen to any database event on the key tables
   supabase
     .channel('realtime-updates')
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'projects' },
-      async () => {
-        console.log('Realtime change detected in projects! Syncing...');
-        await refreshApp();
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'staff' },
-      async () => {
-        await refreshApp();
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'holidays' },
-      async () => {
-        await refreshApp();
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'trainings' },
-      async () => {
-        await refreshApp();
-      }
-    )
-    .subscribe();
-}
+      async (payload) => {
+        console.log('Realtime project sync payload received:', payload);
+        
+        // Don't force a background redraw if this tab is the one editing, 
+        // as our local form save already safely updated the UI.
+        if (editingId !== null) return;
 
-async function refreshApp() {
-  // Safe-guard: Don't refresh if the user is currently typing in the edit modal
-  if (editingId !== null) return; 
-  
-  await loadProjects(); 
-  renderYearNav(); 
-  populateStaffFilter();
-  buildMonthsHeader();
-  renderAll();
+        const { eventType, new: newRecord, old: oldRecord } = payload;
+        const year = newRecord?.year || oldRecord?.year || currentYear;
+        
+        if (!projects[year]) projects[year] = [];
+
+        if (eventType === 'INSERT') {
+          // Add the single new project locally
+          projects[year].push({
+            id: newRecord.id,
+            name: newRecord.name,
+            staff: newRecord.staff,
+            start: newRecord.start_date,
+            end: newRecord.end_date,
+            color: newRecord.color,
+            completed: newRecord.completed,
+            comments: newRecord.comments
+          });
+        } 
+        else if (eventType === 'UPDATE') {
+          // Swap out only the single modified project
+          const idx = projects[year].findIndex(p => p.id === newRecord.id);
+          if (idx !== -1) {
+            projects[year][idx] = {
+              id: newRecord.id,
+              name: newRecord.name,
+              staff: newRecord.staff,
+              start: newRecord.start_date,
+              end: newRecord.end_date,
+              color: newRecord.color,
+              completed: newRecord.completed,
+              comments: newRecord.comments
+            };
+          }
+        } 
+        else if (eventType === 'DELETE') {
+          // Drop the deleted project from local memory
+          projects[year] = projects[year].filter(p => p.id !== oldRecord.id);
+        }
+
+        // Instantly repaint the UI layout with zero network latency
+        renderYearNav(); 
+        populateStaffFilter();
+        buildMonthsHeader();
+        renderAll();
+      }
+    )
+    // Keep these generic fallback reloads for structural metadata changes
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'staff' }, async () => { await loadProjects(); renderAll(); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'holidays' }, async () => { await loadProjects(); renderAll(); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'trainings' }, async () => { await loadProjects(); renderAll(); })
+    .subscribe();
 }
 
 function initSupabase() {
