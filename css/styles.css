@@ -945,12 +945,12 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* Specific class for weekends */
 .is-weekend {
-  background: rgba(94, 90, 91, 0.253);
+  background: rgba(229, 229, 50, 0.626);
 }
 
 /* Specific class for "Today" */
 .is-today {
-  background: rgba(245, 159, 11, 0.4);
+  background: rgba(235, 152, 9, 0.687);
   border-left: 1px solid rgba(245, 158, 11, 0.5);
   border-right: 1px solid rgba(245, 158, 11, 0.5);
 }
@@ -1559,7 +1559,7 @@ body.viewer-mode .picker-panel {
   border-radius: 2px;
 }
 
-.dot-weekend { background: rgba(94, 90, 91, 0.4); } /* Matches .is-weekend */
+.dot-weekend { background: rgba(229, 229, 50, 0.626);; } /* Matches .is-weekend */
 .dot-holiday { background: rgba(232, 57, 188, 0.689); } /* Matches .is-holiday */
 .dot-training { background: rgba(16, 185, 129, 0.71); } /* Matches training logic */
 .dot-today    { background: rgba(245, 159, 11, 0.8); } /* Matches .is-today */
