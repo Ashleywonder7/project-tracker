@@ -56,7 +56,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   applyPermissions(); // Run permissions check
 
   // 3. Initialize Realtime Subscriptions (INSERTED HERE)
-  subscribeToRealtimeChanges();
+  //subscribeToRealtimeChanges();
 
   // Check for auto-popup after everything is loaded
   checkAutoNotify();
@@ -675,7 +675,7 @@ function saveToLocal() {
 // ─────────────────────────────────────────────────
 
 // ─── REALTIME SYNC ──────────────────────────────
-function subscribeToRealtimeChanges() {
+/*function subscribeToRealtimeChanges() {
   if (!USE_SUPABASE || !supabase) return;
 
   supabase
@@ -741,7 +741,7 @@ function subscribeToRealtimeChanges() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'holidays' }, async () => { await loadProjects(); renderAll(); })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'trainings' }, async () => { await loadProjects(); renderAll(); })
     .subscribe();
-}
+}*/
 
 function initSupabase() {
   if (!USE_SUPABASE || !window.supabase) return null;
